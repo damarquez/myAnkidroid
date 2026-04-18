@@ -204,3 +204,85 @@ scale up, but not down.  */
   background: #b71c1c;
   color: #fff;
 }
+
+.ankidroid-hidden-text-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 2px 0;
+}
+
+.ankidroid-hidden-text-toggle {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #ccc;
+  color: #333;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ankidroid-hidden-text-content {
+  flex: 1 1 auto;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.ankidroid-hidden-text-content.is-hidden {
+  background: #bfbfbf;
+  color: #bfbfbf !important;
+}
+
+.ankidroid-hidden-text-content.is-hidden * {
+  color: #bfbfbf !important;
+  -webkit-text-fill-color: #bfbfbf !important;
+}
+
+.ankidroid-hidden-text-content.is-hidden a,
+.ankidroid-hidden-text-content.is-hidden a:link,
+.ankidroid-hidden-text-content.is-hidden a:visited,
+.ankidroid-hidden-text-content.is-hidden a:hover,
+.ankidroid-hidden-text-content.is-hidden a:active {
+  color: #bfbfbf !important;
+  -webkit-text-fill-color: #bfbfbf !important;
+}
+
+.ankidroid-hidden-text-content.is-hidden .ankidroid-native-audio-player,
+.ankidroid-hidden-text-content.is-hidden audio {
+  visibility: hidden;
+}
+
+.ankidroid-hidden-text-alt {
+  display: none;
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-style: italic;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.ankidroid-hidden-text-content.is-hidden.has-alt .ankidroid-hidden-text-alt {
+  display: inline;
+  color: #444 !important;
+  -webkit-text-fill-color: #444 !important;
+}
+
+.ankidroid-hidden-text-content.is-revealed {
+  background: transparent;
+  color: inherit !important;
+}
+
+.ankidroid-hidden-text-content.is-revealed * {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}

@@ -52,146 +52,6 @@
 
 <hr>
 
-<script>
-    window.getLastTextNodeDeep = function (node) {
-        if (!node) return null;
-
-        if (node.nodeType === Node.TEXT_NODE) {
-            return node;
-        }
-
-        for (let i = node.childNodes.length - 1; i >= 0; i--) {
-            const found = window.getLastTextNodeDeep(node.childNodes[i]);
-            if (found) return found;
-        }
-
-        return null;
-    };
-
-    window.getHiddenMarkerInfo = function (lineEl) {
-        if (!lineEl) return null;
-
-        const text = (lineEl.textContent || '').replace(/\u00A0/g, ' ').trim();
-
-        if (/\(\*\)\s*$/.test(text)) {
-            return { marker: '(*)', alt: '' };
-        }
-        if (/\(\*1\)\s*$/.test(text)) {
-            return { marker: '(*1)', alt: 'Mandarin' };
-        }
-        if (/\(\*2\)\s*$/.test(text)) {
-            return { marker: '(*2)', alt: 'Pinyin' };
-        }
-        if (/\(\*3\)\s*$/.test(text)) {
-            return { marker: '(*3)', alt: 'Translation' };
-        }
-
-        return null;
-    };
-
-    window.removeHiddenMarkerFromLine = function (lineEl, marker) {
-        if (!lineEl || !marker) return;
-
-        const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const lastTextNode = window.getLastTextNodeDeep(lineEl);
-        if (!lastTextNode) return;
-
-        lastTextNode.textContent = lastTextNode.textContent.replace(
-            new RegExp('\\s*' + escapedMarker + '\\s*$'),
-            ''
-        );
-    };
-
-    window.makeLineToggleable = function (lineEl, altText) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'hidden-line-wrapper';
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'hidden-line-toggle';
-        btn.textContent = '+';
-
-        const content = document.createElement('div');
-        content.className = 'hidden-line-content is-hidden';
-
-        if (altText) {
-            content.classList.add('has-alt');
-        }
-
-        while (lineEl.firstChild) {
-            content.appendChild(lineEl.firstChild);
-        }
-
-        if (altText) {
-            const altSpan = document.createElement('span');
-            altSpan.className = 'hidden-line-alt';
-            altSpan.textContent = altText;
-            content.appendChild(altSpan);
-        }
-
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const hidden = content.classList.contains('is-hidden');
-            if (hidden) {
-                content.classList.remove('is-hidden');
-                content.classList.add('is-revealed');
-                btn.textContent = '-';
-            } else {
-                content.classList.remove('is-revealed');
-                content.classList.add('is-hidden');
-                btn.textContent = '+';
-            }
-        });
-
-        wrapper.appendChild(btn);
-        wrapper.appendChild(content);
-        return wrapper;
-    };
-
-    window.applyHiddenLineToggles = function (target) {
-        if (!target || target.dataset.hiddenLinesProcessed === '1') return;
-
-        const originalNodes = Array.from(target.childNodes);
-        const rebuilt = document.createDocumentFragment();
-        let currentLine = document.createElement('div');
-
-        function flushCurrentLine() {
-            const hasContent = currentLine.childNodes.length > 0;
-            if (!hasContent) return;
-
-            const info = window.getHiddenMarkerInfo(currentLine);
-
-            if (info) {
-                window.removeHiddenMarkerFromLine(currentLine, info.marker);
-                rebuilt.appendChild(window.makeLineToggleable(currentLine, info.alt));
-            } else {
-                while (currentLine.firstChild) {
-                    rebuilt.appendChild(currentLine.firstChild);
-                }
-            }
-
-            currentLine = document.createElement('div');
-        }
-
-        originalNodes.forEach(node => {
-            if (node.nodeName === 'BR') {
-                flushCurrentLine();
-                rebuilt.appendChild(document.createElement('br'));
-            } else {
-                currentLine.appendChild(node);
-            }
-        });
-
-        flushCurrentLine();
-
-        target.innerHTML = '';
-        target.appendChild(rebuilt);
-        target.dataset.hiddenLinesProcessed = '1';
-    };
-</script>
-
 <!-- Native nav selection controls are provided by AnkiDroid when ankidroid-nav-config is present. -->
 
 {{#Pinyin}}
@@ -239,6 +99,37 @@
 }
 </script>
 
+<script id="ankidroid-hidden-text-config" type="application/json">
+{
+  "rules": [
+    {
+      "end": "(*)",
+      "label": "",
+      "initialState": "hidden",
+      "delimiterHasEOL": true
+    },
+    {
+      "end": "(*1)",
+      "label": "Mandarin",
+      "initialState": "hidden",
+      "delimiterHasEOL": true
+    },
+    {
+      "end": "(*2)",
+      "label": "Pinyin",
+      "initialState": "hidden",
+      "delimiterHasEOL": true
+    },
+    {
+      "end": "(*3)",
+      "label": "Translation",
+      "initialState": "hidden",
+      "delimiterHasEOL": true
+    }
+  ]
+}
+</script>
+
 <script id="ankidroid-nav-config" type="application/json">
 {
   // matchMode: "exact" | "partial"
@@ -269,14 +160,4 @@
     "suffix": ""
   }
 }
-</script>
-
-<script>
-    setTimeout(function() {
-        document.querySelectorAll('.field-rich-content').forEach(function(target) {
-            if (typeof applyHiddenLineToggles === 'function') {
-                applyHiddenLineToggles(target);
-            }
-        });
-    }, 0);
 </script>
