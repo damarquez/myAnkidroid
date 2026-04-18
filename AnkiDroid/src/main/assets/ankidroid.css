@@ -16,3 +16,33 @@ img {
   width: 100%;
   font-family: "Noto Sans Mono";
 }
+
+.ankidroid-native-audio-player {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    margin: 0.15em 0;
+    vertical-align: middle;
+}
+
+.ankidroid-native-audio-player button {
+    border: none;
+    border-radius: 999px;
+    padding: 0.35em 0.75em;
+    font: inherit;
+    line-height: 1.2;
+    cursor: pointer;
+    background: #e0e0e0;
+    color: #111;
+}
+
+.ankidroid-native-audio-player[data-state="playing"] .ankidroid-audio-play {
+    background: #2e7d32;
+    color: #fff;
+}
+
+.nightMode .ankidroid-native-audio-player button,
+.night_mode .ankidroid-native-audio-player button {
+    background: #4a4a4a;
+    color: #fff;
+}

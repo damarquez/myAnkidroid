@@ -61,7 +61,7 @@ fun expandSounds(
         val playsound = "playsound:${this.side}:${this.index}"
 
         @Language("HTML")
-        val result = """<a class="replay-button soundLink" href=$playsound><span>
+        val result = """<a class="replay-button soundLink" href=$playsound data-play="$playsound" data-av-side="${this.side}" data-av-index="${this.index}"><span>
                         <svg class="playImage" viewBox="0 0 64 64" version="1.1">
                             <circle cx="32" cy="32" r="29" fill="lightgrey"/>
                             <path d="M56.502,32.301l-37.502,20.101l0.329,-40.804l37.173,20.703Z" fill="black"/>Replay
@@ -110,7 +110,7 @@ suspend fun getAvTag(
     card: Card,
     url: String,
 ): AvTag? =
-    AV_PLAYLINK_RE.matchEntire(url)?.let {
+    AV_PLAYLINK_RE.matchEntire(url.substringBefore("?"))?.let {
         val values = it.groupValues
         val questionSide = values[1] == "q"
         val index = values[2].toInt()
@@ -128,6 +128,42 @@ suspend fun getAvTag(
             null
         }
     }
+
+data class AudioPlayerOptions(
+    val playbackRate: Float = 1.0f,
+    val repeatCount: Int = 1,
+    val gapMs: Long = 0L,
+    val playerId: String? = null,
+)
+
+fun parseAudioPlayerOptions(url: String): AudioPlayerOptions {
+    val query = url.substringAfter("?", "")
+    if (query.isBlank()) return AudioPlayerOptions()
+
+    fun decode(value: String): String = value.replace("+", " ").replace("%20", " ")
+
+    val params =
+        query
+            .split("&")
+            .mapNotNull { part ->
+                if (part.isBlank()) return@mapNotNull null
+                val key = part.substringBefore("=")
+                val value = part.substringAfter("=", "")
+                key to decode(value)
+            }.toMap()
+
+    val playbackRate = params["rate"]?.toFloatOrNull()?.coerceIn(0.5f, 2.0f) ?: 1.0f
+    val repeatCount = params["repeat"]?.toIntOrNull()?.coerceIn(1, 10) ?: 1
+    val gapMs = params["gapMs"]?.toLongOrNull()?.coerceIn(0L, 5_000L) ?: 0L
+    val playerId = params["playerId"]?.takeIf { it.isNotBlank() }
+
+    return AudioPlayerOptions(
+        playbackRate = playbackRate,
+        repeatCount = repeatCount,
+        gapMs = gapMs,
+        playerId = playerId,
+    )
+}
 
 /**
  * Return card text with play buttons added, or stripped.

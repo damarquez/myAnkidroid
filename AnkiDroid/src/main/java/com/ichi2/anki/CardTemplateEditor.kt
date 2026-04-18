@@ -1104,6 +1104,11 @@ open class CardTemplateEditor :
                     insertField(NAV_CONTROL_TEMPLATE)
                     return true
                 }
+                R.id.action_insert_audio_player_control -> {
+                    Timber.i("CardTemplateEditor:: Insert audio player control button pressed")
+                    insertField(AUDIO_PLAYER_CONTROL_TEMPLATE)
+                    return true
+                }
                 R.id.action_delete -> {
                     Timber.i("CardTemplateEditor:: Delete template button pressed")
                     deleteCardTemplate()
@@ -1596,6 +1601,25 @@ open class CardTemplateEditor :
                     "prefix": "",
                     "suffix": ""
                   }
+                }
+                </script>
+
+                """.trimIndent()
+
+            private val AUDIO_PLAYER_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-audio-config" type="application/json">
+                {
+                  // playbackSpeeds: allowed speed buttons shown in the native player.
+                  "playbackSpeeds": [0.7, 1.0, 1.2],
+                  // defaultPlaybackSpeed: initial speed selected when the card opens.
+                  "defaultPlaybackSpeed": 1.0,
+                  // repeatCounts: allowed repetition buttons shown in the native player.
+                  "repeatCounts": [1, 2, 3],
+                  // defaultRepeatCount: initial repeat count selected when the card opens.
+                  "defaultRepeatCount": 1,
+                  // gapMs: delay between repetitions in milliseconds.
+                  "gapMs": 150
                 }
                 </script>
 

@@ -45,6 +45,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -191,13 +192,18 @@ class CardMediaPlayer : Closeable {
     }
 
     suspend fun playOne(tag: AvTag) {
-        if (!isEnabled) return
+        playOne(tag, PlaybackCommandOptions())
+    }
 
-        suspend fun play(tag: AvTag) = play(tag, isAutomaticPlayback = false)
+    suspend fun playOne(
+        tag: AvTag,
+        options: PlaybackCommandOptions,
+    ) {
+        if (!isEnabled) return
 
         suspend fun retry() {
             try {
-                play(tag)
+                playOneInternal(tag, options)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -212,7 +218,7 @@ class CardMediaPlayer : Closeable {
 
                 scope.launch {
                     try {
-                        play(tag)
+                        playOneInternal(tag, options)
                     } catch (e: MediaException) {
                         when (e.continuationBehavior) {
                             RETRY_MEDIA -> retry()
@@ -227,6 +233,31 @@ class CardMediaPlayer : Closeable {
                     playAvTagsJob = null
                 }
             }
+    }
+
+    suspend fun playOneAndAwait(
+        tag: AvTag,
+        options: PlaybackCommandOptions,
+    ) {
+        if (!isEnabled) return
+
+        val job =
+            playbackMutex.withLock {
+                playAvTagsJob?.cancelAndJoin()
+                Timber.i("playing one AV Tag and awaiting completion")
+
+                scope
+                    .launch {
+                        try {
+                            playOneInternal(tag, options)
+                        } finally {
+                            playAvTagsJob = null
+                        }
+                    }.also {
+                        playAvTagsJob = it
+                    }
+            }
+        job.join()
     }
 
     suspend fun stop() {
@@ -276,12 +307,13 @@ class CardMediaPlayer : Closeable {
     private suspend fun play(
         tag: AvTag,
         isAutomaticPlayback: Boolean,
+        playbackRate: Float = 1.0f,
     ): Boolean =
         withContext(Dispatchers.IO) {
             suspend fun play() {
                 ensureActive()
                 when (tag) {
-                    is SoundOrVideoTag -> soundTagPlayer.play(tag, mediaErrorListener)
+                    is SoundOrVideoTag -> soundTagPlayer.play(tag, mediaErrorListener, playbackRate)
                     is TTSTag -> {
                         awaitTtsPlayer(isAutomaticPlayback)?.play(tag)?.error?.let {
                             mediaErrorListener.onTtsError(it, isAutomaticPlayback)
@@ -316,6 +348,21 @@ class CardMediaPlayer : Closeable {
             }
             return@withContext true
         }
+
+    private suspend fun playOneInternal(
+        tag: AvTag,
+        options: PlaybackCommandOptions,
+    ) {
+        repeat(options.repeatCount) { index ->
+            val shouldContinue = play(tag, isAutomaticPlayback = false, playbackRate = options.playbackRate)
+            if (!shouldContinue) {
+                return
+            }
+            if (index < options.repeatCount - 1 && options.gapMs > 0L) {
+                delay(options.gapMs)
+            }
+        }
+    }
 
     /** Whether the provided side has available media */
     fun hasMedia(displayAnswer: Boolean): Boolean = if (displayAnswer) answerAvTags.isNotEmpty() else questionAvTags.isNotEmpty()
@@ -357,6 +404,12 @@ class CardMediaPlayer : Closeable {
         private const val TTS_PLAYER_TIMEOUT_MS = 2_500L
     }
 }
+
+data class PlaybackCommandOptions(
+    val playbackRate: Float = 1.0f,
+    val repeatCount: Int = 1,
+    val gapMs: Long = 0L,
+)
 
 /**
  * Cancels the [Deferred] and safely closes its resulting [Closeable] upon completion.

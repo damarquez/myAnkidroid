@@ -102,6 +102,7 @@ import com.ichi2.anki.cardviewer.MediaErrorBehavior.RETRY_MEDIA
 import com.ichi2.anki.cardviewer.MediaErrorHandler
 import com.ichi2.anki.cardviewer.MediaErrorListener
 import com.ichi2.anki.cardviewer.OnRenderProcessGoneDelegate
+import com.ichi2.anki.cardviewer.PlaybackCommandOptions
 import com.ichi2.anki.cardviewer.RenderedCard
 import com.ichi2.anki.cardviewer.SingleCardSide
 import com.ichi2.anki.cardviewer.TTS
@@ -129,6 +130,7 @@ import com.ichi2.anki.libanki.TTSTag
 import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.multimedia.getAvTag
+import com.ichi2.anki.multimedia.parseAudioPlayerOptions
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.buildKnownDecksInjectionJs
@@ -179,6 +181,7 @@ import com.ichi2.utils.title
 import com.squareup.seismic.ShakeDetector
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
 import java.io.UnsupportedEncodingException
@@ -2449,6 +2452,13 @@ abstract class AbstractFlashcardViewer :
                 }
                 return true
             }
+            if (url.startsWith("stopsound:")) {
+                launchCatchingTask {
+                    cardMediaPlayer.stop()
+                    dispatchAudioPlayerState("stopped", url.substringAfter("playerId=", "").ifBlank { null })
+                }
+                return true
+            }
             if (url.startsWith("missing-user-action:")) {
                 val actionNumber = url.substringAfter(":")
                 val message = getString(R.string.missing_user_action_dialog_message, actionNumber)
@@ -2617,6 +2627,7 @@ abstract class AbstractFlashcardViewer :
          */
         @NeedsTest("14221: 'playsound' should play the sound from the start")
         private suspend fun controlMedia(url: String) {
+            val options = parseAudioPlayerOptions(url)
             val avTag =
                 when (val tag = currentCard?.let { getAvTag(it, url) }) {
                     is SoundOrVideoTag -> tag
@@ -2624,7 +2635,27 @@ abstract class AbstractFlashcardViewer :
                     // not currently supported
                     null -> return
                 }
-            cardMediaPlayer.playOne(avTag)
+            dispatchAudioPlayerState("playing", options.playerId)
+            cardMediaPlayer.playOneAndAwait(
+                avTag,
+                PlaybackCommandOptions(
+                    playbackRate = options.playbackRate,
+                    repeatCount = options.repeatCount,
+                    gapMs = options.gapMs,
+                ),
+            )
+            dispatchAudioPlayerState("complete", options.playerId)
+        }
+
+        private fun dispatchAudioPlayerState(
+            state: String,
+            playerId: String?,
+        ) {
+            val script =
+                "window.dispatchEvent(new CustomEvent('ankidroid-audio-player-state', { detail: { state: ${JSONObject.quote(
+                    state,
+                )}, playerId: ${JSONObject.quote(playerId ?: "")} } }));"
+            runOnUiThread { webView?.evaluateJavascript(script, null) }
         }
 
         // Run any post-load events in javascript that rely on the window being completely loaded.

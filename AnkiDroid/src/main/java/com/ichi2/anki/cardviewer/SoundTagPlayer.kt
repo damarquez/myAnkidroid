@@ -20,7 +20,9 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.media.PlaybackParams
 import android.net.Uri
+import android.os.Build
 import androidx.annotation.CheckResult
 import androidx.annotation.VisibleForTesting
 import androidx.core.net.toUri
@@ -73,12 +75,13 @@ class SoundTagPlayer(
     suspend fun play(
         tag: SoundOrVideoTag,
         mediaErrorListener: MediaErrorListener?,
+        playbackRate: Float = 1.0f,
     ) {
         val tagType = tag.getType()
         suspendCancellableCoroutine { continuation ->
             Timber.d("Playing SoundOrVideoTag")
             when (tagType) {
-                SoundOrVideoTag.Type.AUDIO -> playSound(continuation, tag, mediaErrorListener)
+                SoundOrVideoTag.Type.AUDIO -> playSound(continuation, tag, mediaErrorListener, playbackRate)
                 SoundOrVideoTag.Type.VIDEO -> playVideo(continuation, tag)
             }
         }
@@ -97,6 +100,7 @@ class SoundTagPlayer(
         continuation: CancellableContinuation<Unit>,
         tag: SoundOrVideoTag,
         mediaErrorListener: MediaErrorListener?,
+        playbackRate: Float,
     ) {
         requireNewMediaPlayer().apply {
             continuation.invokeOnCancellation {
@@ -139,6 +143,8 @@ class SoundTagPlayer(
                 val exception = MediaException(continuationBehavior, e)
                 return continuation.resumeWithException(exception)
             }
+
+            applyPlaybackRate(playbackRate)
 
             if (requestAudioFocus() == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
                 continuation.ensureActive()
@@ -199,6 +205,17 @@ class SoundTagPlayer(
     private fun MediaPlayer.awaitSetDataSource(uri: String) {
         setDataSource(uri)
         prepare()
+    }
+
+    private fun MediaPlayer.applyPlaybackRate(playbackRate: Float) {
+        if (playbackRate == 1.0f || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return
+        }
+        runCatching {
+            playbackParams = PlaybackParams().setSpeed(playbackRate)
+        }.onFailure {
+            Timber.w(it, "Unable to apply playback rate %s", playbackRate)
+        }
     }
 
     @CheckResult

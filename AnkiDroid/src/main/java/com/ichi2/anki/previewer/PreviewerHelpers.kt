@@ -61,6 +61,7 @@ fun stdHtml(
             "backend/js/vendor/mathjax/tex-chtml-full.js",
             "backend/js/reviewer.js",
             "scripts/ankidroid-cardviewer.js",
+            "scripts/ankidroid-audio-player.js",
         ) + extraJsAssets
     val jsTxt =
         jsAssets.joinToString("\n") {
