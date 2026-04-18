@@ -557,15 +557,16 @@
             }
         }
 
-        function tryOpenBrowserSearch(query) {
+        function tryOpenBrowserSearch(payload) {
             try {
                 const ankidroidApi = initAnkiDroidApi();
                 if (ankidroidApi && typeof ankidroidApi.ankiNavigateCard === 'function') {
-                    ankidroidApi.ankiNavigateCard(query);
+                    ankidroidApi.ankiNavigateCard(payload);
                     return true;
                 }
+                const request = JSON.parse(payload);
                 if (ankidroidApi && typeof ankidroidApi.ankiSearchCard === 'function') {
-                    ankidroidApi.ankiSearchCard(query);
+                    ankidroidApi.ankiSearchCard(request.query);
                     return true;
                 }
             } catch (e) {}
@@ -573,9 +574,9 @@
             return false;
         }
 
-        function tryOpenPreviewSearch(query) {
+        function tryOpenPreviewSearch(payload) {
             try {
-                window.location.href = `ankidroid-preview://navigate-card?search=${encodeURIComponent(query)}`;
+                window.location.href = `ankidroid-preview://navigate-card?payload=${encodeURIComponent(payload)}`;
                 return true;
             } catch (e) {}
 
@@ -603,17 +604,34 @@
                 deck: 'MandarinMP::Characters',
                 field: 'Front',
                 matchMode: 'exact',
+                openMode: 'answer',
                 prefix: '',
                 suffix: ''
+            },
+            singleCharWord: {
+                deck: 'MandarinMP::Vocabulary',
+                field: 'Front',
+                matchMode: 'exact',
+                openMode: 'answer',
+                prefix: '',
+                suffix: '.'
             },
             word: {
                 deck: 'MandarinMP::Vocabulary',
                 field: 'Front',
                 matchMode: 'exact',
+                openMode: 'answer',
                 prefix: '',
                 suffix: ''
             }
         };
+
+        function buildNavigationPayload(query, config) {
+            return JSON.stringify({
+                query,
+                openMode: String((config && config.openMode) || 'question').toLowerCase()
+            });
+        }
 
         function buildFieldQuery(text, config) {
             const escapedDeck = escapeForAnkiSearch(config.deck || '');
@@ -644,7 +662,7 @@
 
             const buttons = [];
 
-            function makeBtn(label, query) {
+            function makeBtn(label, query, config) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = SEARCH_BTN_CLASS;
@@ -676,7 +694,8 @@
                     e.preventDefault();
                     e.stopPropagation();
 
-                    const ok = tryOpenBrowserSearch(query) || tryOpenPreviewSearch(query);
+                    const payload = buildNavigationPayload(query, config);
+                    const ok = tryOpenBrowserSearch(payload) || tryOpenPreviewSearch(payload);
                     if (!ok) {
                         await fallbackCopyQuery(query);
                     }
@@ -696,11 +715,15 @@
                 return buildFieldQuery(text, SEARCH_CONFIG.word);
             }
 
+            function qSingleCharWord(text) {
+                return buildFieldQuery(text, SEARCH_CONFIG.singleCharWord);
+            }
+
             if (isSingleChar) {
-                makeBtn('Char', qChar(clean));
-                makeBtn('Word', qWord(clean));
+                makeBtn('Char', qChar(clean), SEARCH_CONFIG.character);
+                makeBtn('Word', qSingleCharWord(clean), SEARCH_CONFIG.singleCharWord);
             } else {
-                makeBtn('Search', qWord(clean));
+                makeBtn('Search', qWord(clean), SEARCH_CONFIG.word);
             }
 
             const totalWidth = (buttons.length * btnWidth) + ((buttons.length - 1) * btnGap);
@@ -849,86 +872,3 @@
     }, autoPlayDelay);
 </script>
 
-<!-- Back to Outranki button (shown only in AnkiDroid) -->
-<script>
-(function() {
-    var ENABLED_KEY = 'outrankiAutoReturnEnabled';
-    var PENDING_KEY = 'outrankiPendingReturnAt';
-    var manualReturnTriggered = false;
-    var ankidroid = null;
-
-    try {
-        if (typeof AnkiDroidJS === 'undefined') return;
-        ankidroid = new AnkiDroidJS({ version: "0.0.3", developer: "your_email_here" });
-        if (!ankidroid) return;
-    } catch(e) { return; }
-
-    function getCookie(name) {
-        var prefix = name + '=';
-        var parts = document.cookie ? document.cookie.split(';') : [];
-        for (var i = 0; i < parts.length; i++) {
-            var part = parts[i].trim();
-            if (part.indexOf(prefix) === 0) {
-                return decodeURIComponent(part.substring(prefix.length));
-            }
-        }
-        return '';
-    }
-
-    function setCookie(name, value, maxAgeSeconds) {
-        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + String(maxAgeSeconds);
-    }
-
-    function clearCookie(name) {
-        document.cookie = name + '=; path=/; max-age=0';
-    }
-
-    function isAutoReturnEnabled() {
-        return getCookie(ENABLED_KEY) === '1';
-    }
-
-    function armAutoReturn() {
-        if (manualReturnTriggered || !isAutoReturnEnabled()) return;
-        setCookie(PENDING_KEY, String(Date.now()), 86400);
-    }
-
-    var panel = document.createElement('div');
-    panel.style.cssText = 'position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:999999;display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(255,255,255,0.98);border:1px solid rgba(21,101,192,0.18);border-radius:22px;box-shadow:0 3px 10px rgba(0,0,0,0.18);white-space:nowrap;';
-
-    var btn = document.createElement('a');
-    btn.href = 'outranki://study';
-    btn.textContent = '\u2190 Outranki';
-    btn.style.cssText = 'display:block;padding:8px 14px;background:#1565c0;color:#fff;border-radius:18px;font-size:14px;font-weight:600;text-decoration:none;';
-    btn.addEventListener('click', function() {
-        manualReturnTriggered = true;
-        clearCookie(PENDING_KEY);
-    });
-
-    var toggleLabel = document.createElement('label');
-    toggleLabel.style.cssText = 'display:flex;align-items:center;gap:6px;color:#17324d;font-size:12px;font-weight:600;';
-
-    var toggle = document.createElement('input');
-    toggle.type = 'checkbox';
-    toggle.checked = isAutoReturnEnabled();
-    toggle.addEventListener('change', function() {
-        if (toggle.checked) {
-            setCookie(ENABLED_KEY, '1', 31536000);
-        } else {
-            clearCookie(ENABLED_KEY);
-            clearCookie(PENDING_KEY);
-        }
-    });
-
-    var toggleText = document.createElement('span');
-    toggleText.textContent = 'Auto-return after grade';
-
-    toggleLabel.appendChild(toggle);
-    toggleLabel.appendChild(toggleText);
-    panel.appendChild(btn);
-    panel.appendChild(toggleLabel);
-    document.body.appendChild(panel);
-
-    window.addEventListener('pagehide', armAutoReturn);
-    window.addEventListener('beforeunload', armAutoReturn);
-})();
-</script>

@@ -60,6 +60,7 @@ class PreviewerViewModel(
     val selectedCardIds: List<Long> = savedStateHandle.require<IdsFile>(PreviewerFragment.CARD_IDS_FILE_ARG).getIds()
     private val linkedNavigationStack = ArrayDeque<PreviewNavigationSnapshot>()
     private var linkedCardId: Long? = null
+    private var pendingScrollRestoreY: Int? = null
 
     val isBackButtonEnabled =
         combine(currentIndex, showingAnswer, backSideOnly) { index, showingAnswer, isBackSideOnly ->
@@ -79,6 +80,10 @@ class PreviewerViewModel(
     override val server = AnkiServer(this).also { it.start() }
 
     init {
+        val initialShowAnswer = savedStateHandle[PreviewerFragment.SHOW_ANSWER_ARG] ?: false
+        if (initialShowAnswer && !showingAnswer.value) {
+            showingAnswer.value = true
+        }
         ChangeManager.subscribe(this)
     }
 
@@ -100,8 +105,8 @@ class PreviewerViewModel(
                 // if not, we want to setup the sound player
                 cardMediaPlayer.ensureAvTagsLoaded(currentCard.await())
             } else {
-                // re-render the current card
-                updateCurrentIndex { it }
+                showCard(showAnswerOnReload)
+                loadAndPlaySounds()
             }
         }
     }
@@ -189,7 +194,11 @@ class PreviewerViewModel(
 
     fun canPopLinkedNavigation() = linkedNavigationStack.isNotEmpty()
 
-    fun openLinkedCard(cardId: Long) {
+    fun openLinkedCard(
+        cardId: Long,
+        scrollY: Int,
+        showAnswer: Boolean,
+    ) {
         launchCatchingIO {
             linkedNavigationStack.addLast(
                 PreviewNavigationSnapshot(
@@ -197,13 +206,15 @@ class PreviewerViewModel(
                     currentIndex = currentIndex.value,
                     showingAnswer = showingAnswer.value,
                     backSideOnly = backSideOnly.value,
+                    scrollY = scrollY,
                 ),
             )
             hasLinkedNavigation.emit(true)
             linkedCardId = cardId
             currentIndex.emit(0)
             backSideOnly.emit(false)
-            showCard(showAnswer = false)
+            pendingScrollRestoreY = 0
+            showCard(showAnswer = showAnswer)
             loadAndPlaySounds()
         }
     }
@@ -216,6 +227,7 @@ class PreviewerViewModel(
             backSideOnly.emit(snapshot.backSideOnly)
             showingAnswer.emit(snapshot.showingAnswer)
             hasLinkedNavigation.emit(linkedNavigationStack.isNotEmpty())
+            pendingScrollRestoreY = snapshot.scrollY
             showCard(showAnswer = snapshot.showingAnswer || snapshot.backSideOnly)
             loadAndPlaySounds()
         }
@@ -250,6 +262,21 @@ class PreviewerViewModel(
                 withCol { getCard(cardId) }
             }
         if (showAnswer) showAnswer() else showQuestion()
+        pendingScrollRestoreY?.let { scrollY ->
+            eval.emit(
+                """
+                (function() {
+                    const y = $scrollY;
+                    requestAnimationFrame(function() {
+                        requestAnimationFrame(function() {
+                            window.scrollTo(0, y);
+                        });
+                    });
+                })();
+                """.trimIndent(),
+            )
+            pendingScrollRestoreY = null
+        }
         updateFlagIcon()
         updateMarkIcon()
     }
@@ -322,4 +349,5 @@ private data class PreviewNavigationSnapshot(
     val currentIndex: Int,
     val showingAnswer: Boolean,
     val backSideOnly: Boolean,
+    val scrollY: Int,
 )

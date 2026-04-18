@@ -63,6 +63,7 @@ import com.ichi2.utils.performClickIfEnabled
 import dev.androidbroadcast.vbpd.viewBinding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class PreviewerFragment :
     CardViewerFragment(R.layout.fragment_previewer),
@@ -227,8 +228,12 @@ class PreviewerFragment :
                 url: Uri,
             ): Boolean {
                 if (url.scheme == "ankidroid-preview" && url.host == "navigate-card") {
-                    val search = url.getQueryParameter("search").orEmpty()
-                    openLinkedPreviewSearch(search)
+                    val payload =
+                        url.getQueryParameter("payload")
+                            ?: url
+                                .getQueryParameter("search")
+                                .orEmpty()
+                    openLinkedPreviewSearch(payload)
                     return true
                 }
                 return super.handleUrl(webView, url)
@@ -315,16 +320,16 @@ class PreviewerFragment :
         }
     }
 
-    private fun openLinkedPreviewSearch(query: String) {
+    private fun openLinkedPreviewSearch(payload: String) {
         lifecycleScope.launch {
-            val trimmed = query.trim()
-            if (trimmed.isBlank()) {
+            val request = parseNavigationRequest(payload)
+            if (request.query.isBlank()) {
                 showSnackbar(getString(R.string.search_card_js_api_no_results))
                 return@launch
             }
 
             val matches =
-                runCatching { findNavigationMatches(trimmed) }
+                runCatching { findNavigationMatches(request.query) }
                     .getOrElse {
                         showSnackbar(getString(R.string.search_card_js_api_no_results))
                         return@launch
@@ -334,10 +339,25 @@ class PreviewerFragment :
                 matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
                 matches.size == 1 -> {
                     showSnackbar("Opening linked preview")
-                    viewModel.openLinkedCard(matches.single().cardId)
+                    captureScrollAndOpenLinkedCard(matches.single().cardId, request.openMode)
                 }
-                else -> showNavigationMatchPicker(matches)
+                else -> showNavigationMatchPicker(matches, request.openMode)
             }
+        }
+    }
+
+    private fun captureScrollAndOpenLinkedCard(
+        cardId: Long,
+        openMode: String,
+    ) {
+        webViewLayout.evaluateJavascript(
+            "(window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0).toString();",
+        ) { callback ->
+            viewModel.openLinkedCard(
+                cardId = cardId,
+                scrollY = callback.trim('"').toIntOrNull() ?: 0,
+                showAnswer = openMode == OPEN_MODE_ANSWER,
+            )
         }
     }
 
@@ -374,7 +394,10 @@ class PreviewerFragment :
             }.distinctBy { it.noteId }
     }
 
-    private fun showNavigationMatchPicker(matches: List<NavigationMatch>) {
+    private fun showNavigationMatchPicker(
+        matches: List<NavigationMatch>,
+        openMode: String,
+    ) {
         val items =
             matches
                 .map { match ->
@@ -386,9 +409,30 @@ class PreviewerFragment :
             .Builder(requireContext())
             .setTitle("Choose linked card")
             .setItems(items) { _, which ->
-                viewModel.openLinkedCard(matches[which].cardId)
+                captureScrollAndOpenLinkedCard(matches[which].cardId, openMode)
             }.setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun parseNavigationRequest(payload: String): NavigationRequest {
+        val trimmed = payload.trim()
+        if (trimmed.isBlank()) {
+            return NavigationRequest("", OPEN_MODE_QUESTION)
+        }
+        return runCatching {
+            val data = JSONObject(trimmed)
+            NavigationRequest(
+                query = data.optString("query", "").trim(),
+                openMode =
+                    data
+                        .optString("openMode", OPEN_MODE_QUESTION)
+                        .trim()
+                        .lowercase()
+                        .ifBlank { OPEN_MODE_QUESTION },
+            )
+        }.getOrElse {
+            NavigationRequest(trimmed, OPEN_MODE_QUESTION)
+        }
     }
 
     private data class NavigationMatch(
@@ -398,12 +442,20 @@ class PreviewerFragment :
         val deckName: String,
     )
 
+    private data class NavigationRequest(
+        val query: String,
+        val openMode: String,
+    )
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         return bindingMap.onKeyDown(event)
     }
 
     companion object {
+        private const val OPEN_MODE_ANSWER = "answer"
+        private const val OPEN_MODE_QUESTION = "question"
+
         /** Index of the card to be first displayed among the IDs provided by [CARD_IDS_FILE_ARG] */
         const val CURRENT_INDEX_ARG = "currentIndex"
 
@@ -414,13 +466,17 @@ class PreviewerFragment :
             context: Context,
             idsFile: IdsFile,
             currentIndex: Int,
+            showAnswer: Boolean = false,
         ): Intent {
             val arguments =
                 bundleOf(
                     CURRENT_INDEX_ARG to currentIndex,
                     CARD_IDS_FILE_ARG to idsFile,
+                    SHOW_ANSWER_ARG to showAnswer,
                 )
             return CardViewerActivity.getIntent(context, PreviewerFragment::class, arguments)
         }
+
+        const val SHOW_ANSWER_ARG = "showAnswer"
     }
 }

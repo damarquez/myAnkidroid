@@ -1200,7 +1200,8 @@ suspend fun searchForRows(
 class PreviewerDestination(
     val currentIndex: Int,
     val idsFile: IdsFile,
+    val showAnswer: Boolean = false,
 )
 
 @CheckResult
-fun PreviewerDestination.toIntent(context: Context) = PreviewerFragment.getIntent(context, idsFile, currentIndex)
+fun PreviewerDestination.toIntent(context: Context) = PreviewerFragment.getIntent(context, idsFile, currentIndex, showAnswer)

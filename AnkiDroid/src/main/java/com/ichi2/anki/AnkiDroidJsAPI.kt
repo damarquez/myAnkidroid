@@ -504,7 +504,8 @@ open class AnkiDroidJsAPI(
     @NeedsTest("needs coverage")
     private suspend fun ankiNavigateCard(apiContract: ApiContract): ByteArray =
         withContext(Dispatchers.Main) {
-            val query = apiContract.cardSuppliedData.trim()
+            val request = parseNavigationRequest(apiContract.cardSuppliedData)
+            val query = request.query
             Timber.i("ankiNavigateCard(): query='%s'", query)
             if (query.isBlank()) {
                 activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
@@ -528,11 +529,11 @@ open class AnkiDroidJsAPI(
                 }
                 matches.size == 1 -> {
                     activity.showSnackbar("Opening linked preview", Snackbar.LENGTH_SHORT)
-                    openPreviewForCard(matches.single().cardId)
+                    openPreviewForCard(matches.single().cardId, request.openMode == OPEN_MODE_ANSWER)
                     convertToByteArray(apiContract, true)
                 }
                 else -> {
-                    showNavigationMatchPicker(matches)
+                    showNavigationMatchPicker(matches, request.openMode == OPEN_MODE_ANSWER)
                     convertToByteArray(apiContract, true)
                 }
             }
@@ -551,7 +552,12 @@ open class AnkiDroidJsAPI(
             .values
             .map { matchesForNote ->
                 val primaryCard = matchesForNote.minWith(compareBy<Card> { it.ord }.thenBy { it.id })
-                val preview = primaryCard.note(getColUnsafe).fields.firstOrNull().orEmpty()
+                val preview =
+                    primaryCard
+                        .note(getColUnsafe)
+                        .fields
+                        .firstOrNull()
+                        .orEmpty()
                 val deckName = Decks.basename(getColUnsafe.decks.name(primaryCard.did))
                 NavigationMatch(
                     cardId = primaryCard.id,
@@ -559,32 +565,59 @@ open class AnkiDroidJsAPI(
                     preview = preview,
                     deckName = deckName,
                 )
-            }
-            .distinctBy { it.noteId }
+            }.distinctBy { it.noteId }
     }
 
-    private fun openPreviewForCard(cardId: Long) {
+    private fun openPreviewForCard(
+        cardId: Long,
+        showAnswer: Boolean,
+    ) {
         val idsFile = IdsFile(activity.cacheDir, listOf(cardId), prefix = "linked-preview")
-        val intent = PreviewerDestination(currentIndex = 0, idsFile = idsFile).toIntent(context)
+        val intent = PreviewerDestination(currentIndex = 0, idsFile = idsFile, showAnswer = showAnswer).toIntent(context)
         activity.startActivity(intent)
     }
 
-    private fun showNavigationMatchPicker(matches: List<NavigationMatch>) {
+    private fun showNavigationMatchPicker(
+        matches: List<NavigationMatch>,
+        showAnswer: Boolean,
+    ) {
         val items =
-            matches.map { match ->
-                val preview = match.preview.ifBlank { "(blank)" }
-                "$preview • ${match.deckName}"
-            }.toTypedArray()
+            matches
+                .map { match ->
+                    val preview = match.preview.ifBlank { "(blank)" }
+                    "$preview • ${match.deckName}"
+                }.toTypedArray()
 
-        AlertDialog.Builder(activity)
+        AlertDialog
+            .Builder(activity)
             .setTitle("Choose linked card")
             .setItems(items) { _, which ->
                 val match = matches[which]
                 Timber.i("ankiNavigateCard(): opening picked match note=%d card=%d", match.noteId, match.cardId)
-                openPreviewForCard(match.cardId)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
+                openPreviewForCard(match.cardId, showAnswer)
+            }.setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun parseNavigationRequest(payload: String): NavigationRequest {
+        val trimmed = payload.trim()
+        if (trimmed.isBlank()) {
+            return NavigationRequest("", OPEN_MODE_QUESTION)
+        }
+        return runCatching {
+            val data = JSONObject(trimmed)
+            NavigationRequest(
+                query = data.optString("query", "").trim(),
+                openMode =
+                    data
+                        .optString("openMode", OPEN_MODE_QUESTION)
+                        .trim()
+                        .lowercase()
+                        .ifBlank { OPEN_MODE_QUESTION },
+            )
+        }.getOrElse {
+            NavigationRequest(trimmed, OPEN_MODE_QUESTION)
+        }
     }
 
     private data class NavigationMatch(
@@ -592,6 +625,11 @@ open class AnkiDroidJsAPI(
         val noteId: Long,
         val preview: String,
         val deckName: String,
+    )
+
+    private data class NavigationRequest(
+        val query: String,
+        val openMode: String,
     )
 
     open class CardDataForJsApi {
@@ -677,6 +715,9 @@ open class AnkiDroidJsAPI(
     )
 
     companion object {
+        private const val OPEN_MODE_ANSWER = "answer"
+        private const val OPEN_MODE_QUESTION = "question"
+
         /**
          * Key for a success value.
          */
