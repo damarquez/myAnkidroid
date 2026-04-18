@@ -1,6 +1,7 @@
 (function () {
     const CONFIG_ID = "ankidroid-audio-config";
     const PLAYER_CLASS = "ankidroid-native-audio-player";
+    const STOP_ALL_CLASS = "ankidroid-native-audio-stop-all";
     const STATE_EVENT = "ankidroid-audio-player-state";
 
     let activePlayerId = null;
@@ -22,10 +23,7 @@
 
     function getAudioConfig() {
         const configEl = document.getElementById(CONFIG_ID);
-        if (!configEl) {
-            console.log("ankidroid-audio-player: config not found");
-            return null;
-        }
+        if (!configEl) return null;
         try {
             const parsed = JSON.parse(stripJsonComments(configEl.textContent || "{}"));
             if (parsed.enabled === false) return null;
@@ -48,8 +46,8 @@
                 defaultPlaybackSpeed,
                 defaultRepeatCount,
                 gapMs: Math.max(0, Number(parsed.gapMs) || 0),
+                showStopAllButton: parsed.showStopAllButton === true,
             };
-            console.log("ankidroid-audio-player: config detected", JSON.stringify(config));
             return config;
         } catch (e) {
             console.error("Invalid ankidroid-audio-config", e);
@@ -73,6 +71,17 @@
     function stopActivePlayer() {
         if (!activePlayerId) return;
         window.location.href = `stopsound:player?playerId=${encodeURIComponent(activePlayerId)}`;
+    }
+
+    function stopAllPlayers() {
+        window.location.href = "stopsound:all";
+    }
+
+    function setAllPlayersIdle() {
+        document.querySelectorAll(`.${PLAYER_CLASS}`).forEach(player => {
+            setPlayerState(player, "idle");
+        });
+        activePlayerId = null;
     }
 
     function buildPlayUrl(player) {
@@ -166,6 +175,27 @@
         anchor.insertAdjacentElement("afterend", player);
     }
 
+    function ensureStopAllButton(config, hasPlayers) {
+        let button = document.querySelector(`.${STOP_ALL_CLASS}`);
+        if (!config.showStopAllButton || !hasPlayers) {
+            if (button) button.remove();
+            return;
+        }
+
+        if (!button) {
+            button = document.createElement("button");
+            button.type = "button";
+            button.className = STOP_ALL_CLASS;
+            button.textContent = "Stop";
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                stopAllPlayers();
+            });
+            document.body.appendChild(button);
+        }
+    }
+
     function enhanceAudioPlayers() {
         const config = getAudioConfig();
         if (!config) return;
@@ -173,11 +203,11 @@
         const anchors = document.querySelectorAll(
             ".replay-button.soundLink:not([data-ankidroid-audio-enhanced])",
         );
-        console.log("ankidroid-audio-player: replay links found", anchors.length);
         anchors.forEach((anchor, index) => {
             createPlayer(anchor, config, index);
         });
-        console.log("ankidroid-audio-player: players enhanced", anchors.length);
+        const hasPlayers = document.querySelectorAll(`.${PLAYER_CLASS}`).length > 0;
+        ensureStopAllButton(config, hasPlayers);
     }
 
     function installObserver() {
@@ -190,16 +220,18 @@
         });
         observer.observe(qa, { childList: true, subtree: true });
         observerInstalled = true;
-        console.log("ankidroid-audio-player: observer installed");
     }
 
     window.addEventListener(STATE_EVENT, function (event) {
         const detail = event && event.detail ? event.detail : {};
         const playerId = detail.playerId || "";
         const state = detail.state || "idle";
-        const player = playerId
-            ? document.querySelector(`.${PLAYER_CLASS}[data-player-id="${playerId}"]`)
-            : null;
+        if (!playerId && (state === "stopped" || state === "complete")) {
+            setAllPlayersIdle();
+            return;
+        }
+
+        const player = document.querySelector(`.${PLAYER_CLASS}[data-player-id="${playerId}"]`);
 
         if (state === "playing") {
             activePlayerId = playerId || activePlayerId;
@@ -232,10 +264,9 @@
                 installHook(reviewer.onUpdateHook);
                 installHook(reviewer.onShownHook);
                 hooksInstalled = true;
-                console.log("ankidroid-audio-player: hooked via anki/reviewer");
             }
         } catch (e) {
-            console.log("ankidroid-audio-player: require hook unavailable");
+            // ignore
         }
     }
 
@@ -249,13 +280,11 @@
         installHook(onUpdateHook);
         installHook(onShownHook);
         hooksInstalled = true;
-        console.log("ankidroid-audio-player: hooked via globals");
     }
 
     installObserver();
 
     if (!hooksInstalled) {
-        console.log("ankidroid-audio-player: no hooks available");
         enhanceAudioPlayers();
         document.addEventListener("DOMContentLoaded", function () {
             installObserver();

@@ -1619,7 +1619,9 @@ open class CardTemplateEditor :
                   // defaultRepeatCount: initial repeat count selected when the card opens.
                   "defaultRepeatCount": 1,
                   // gapMs: delay between repetitions in milliseconds.
-                  "gapMs": 150
+                  "gapMs": 150,
+                  // showStopAllButton: shows a global Stop button for any audio playing on the card.
+                  "showStopAllButton": false
                 }
                 </script>
 
