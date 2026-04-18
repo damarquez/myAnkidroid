@@ -15,14 +15,17 @@
  */
 package com.ichi2.anki.previewer
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.webkit.WebView
 import androidx.appcompat.widget.Toolbar
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -31,19 +34,28 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.ichi2.anki.CollectionManager.withCol
 import com.google.android.material.slider.Slider
 import com.ichi2.anki.DispatchKeyEventListener
 import com.ichi2.anki.Flag
+import com.ichi2.anki.PreviewerDestination
 import com.ichi2.anki.R
 import com.ichi2.anki.browser.IdsFile
+import com.ichi2.anki.browser.search.SearchString
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.databinding.FragmentPreviewerBinding
+import com.ichi2.anki.libanki.Card
+import com.ichi2.anki.libanki.Decks
+import com.ichi2.anki.libanki.SortOrder
+import com.ichi2.anki.model.CardsOrNotes
 import com.ichi2.anki.previewer.PreviewerFragment.Companion.CARD_IDS_FILE_ARG
 import com.ichi2.anki.reviewer.BindingMap
 import com.ichi2.anki.reviewer.BindingProcessor
 import com.ichi2.anki.reviewer.MappableBinding
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
+import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.anki.toIntent
 import com.ichi2.anki.utils.ext.collectIn
 import com.ichi2.anki.utils.ext.sharedPrefs
 import com.ichi2.anki.workarounds.SafeWebViewLayout
@@ -193,6 +205,21 @@ class PreviewerFragment :
         bindingMap = BindingMap(sharedPrefs(), PreviewerAction.entries, this)
     }
 
+    override fun onCreateWebViewClient(savedInstanceState: Bundle?): CardViewerWebViewClient =
+        object : CardViewerWebViewClient(savedInstanceState) {
+            override fun handleUrl(
+                webView: WebView,
+                url: Uri,
+            ): Boolean {
+                if (url.scheme == "ankidroid-preview" && url.host == "navigate-card") {
+                    val search = url.getQueryParameter("search").orEmpty()
+                    openLinkedPreviewSearch(search)
+                    return true
+                }
+                return super.handleUrl(webView, url)
+            }
+        }
+
     private fun updateSliderGestureExclusion(slider: Slider) {
         ViewCompat.setSystemGestureExclusionRects(
             slider,
@@ -272,6 +299,90 @@ class PreviewerFragment :
             startActivity(intent)
         }
     }
+
+    private fun openLinkedPreviewSearch(query: String) {
+        lifecycleScope.launch {
+            val trimmed = query.trim()
+            if (trimmed.isBlank()) {
+                showSnackbar(getString(R.string.search_card_js_api_no_results))
+                return@launch
+            }
+
+            val matches =
+                runCatching { findNavigationMatches(trimmed) }
+                    .getOrElse {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                        return@launch
+                    }
+
+            when {
+                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.size == 1 -> {
+                    showSnackbar("Opening linked preview")
+                    openPreviewForCard(matches.single().cardId)
+                }
+                else -> showNavigationMatchPicker(matches)
+            }
+        }
+    }
+
+    private suspend fun findNavigationMatches(query: String): List<NavigationMatch> {
+        val searchString = withCol { SearchString.fromUserInput(query) }.getOrThrow()
+        val cards =
+            com.ichi2.anki.searchForRows(searchString, SortOrder.UseCollectionOrdering, CardsOrNotes.CARDS)
+                .map { withCol { getCard(it.cardOrNoteId) } }
+
+        return cards
+            .groupBy { it.nid }
+            .values
+            .map { matchesForNote ->
+                val primaryCard = matchesForNote.minWith(compareBy<Card> { it.ord }.thenBy { it.id })
+                val preview =
+                    withCol {
+                        primaryCard.note(this).fields.firstOrNull().orEmpty()
+                    }
+                val deckName =
+                    withCol {
+                        Decks.basename(decks.name(primaryCard.did))
+                    }
+                NavigationMatch(
+                    cardId = primaryCard.id,
+                    noteId = primaryCard.nid,
+                    preview = preview,
+                    deckName = deckName,
+                )
+            }
+            .distinctBy { it.noteId }
+    }
+
+    private fun openPreviewForCard(cardId: Long) {
+        val idsFile = IdsFile(requireContext().cacheDir, listOf(cardId), prefix = "linked-preview")
+        val intent = PreviewerDestination(currentIndex = 0, idsFile = idsFile).toIntent(requireContext())
+        startActivity(intent)
+    }
+
+    private fun showNavigationMatchPicker(matches: List<NavigationMatch>) {
+        val items =
+            matches.map { match ->
+                val preview = match.preview.ifBlank { "(blank)" }
+                "$preview • ${match.deckName}"
+            }.toTypedArray()
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Choose linked card")
+            .setItems(items) { _, which ->
+                openPreviewForCard(matches[which].cardId)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private data class NavigationMatch(
+        val cardId: Long,
+        val noteId: Long,
+        val preview: String,
+        val deckName: String,
+    )
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false

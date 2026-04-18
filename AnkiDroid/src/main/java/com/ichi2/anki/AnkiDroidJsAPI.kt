@@ -17,6 +17,7 @@
 
 package com.ichi2.anki
 
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.lifecycleScope
@@ -33,6 +34,7 @@ import com.ichi2.anki.AnkiDroidJsAPIConstants.ANKI_JS_ERROR_CODE_SUSPEND_CARD
 import com.ichi2.anki.AnkiDroidJsAPIConstants.ANKI_JS_ERROR_CODE_SUSPEND_NOTE
 import com.ichi2.anki.AnkiDroidJsAPIConstants.flagCommands
 import com.ichi2.anki.CollectionManager.withCol
+import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.browser.search.SearchString
 import com.ichi2.anki.cardviewer.ViewerCommand
 import com.ichi2.anki.common.annotations.NeedsTest
@@ -311,6 +313,7 @@ open class AnkiDroidJsAPI(
                 activity.startActivity(intent)
                 convertToByteArray(apiContract, true)
             }
+            "navigateCard" -> ankiNavigateCard(apiContract)
             "searchCardWithCallback" -> ankiSearchCardWithCallback(apiContract)
             "isDisplayingAnswer" -> convertToByteArray(apiContract, activity.isDisplayingAnswer)
             "addTagToCard" -> {
@@ -497,6 +500,99 @@ open class AnkiDroidJsAPI(
             }
             convertToByteArray(apiContract, true)
         }
+
+    @NeedsTest("needs coverage")
+    private suspend fun ankiNavigateCard(apiContract: ApiContract): ByteArray =
+        withContext(Dispatchers.Main) {
+            val query = apiContract.cardSuppliedData.trim()
+            Timber.i("ankiNavigateCard(): query='%s'", query)
+            if (query.isBlank()) {
+                activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
+                return@withContext convertToByteArray(apiContract, false)
+            }
+
+            val matches =
+                try {
+                    findNavigationMatches(query)
+                } catch (_: Exception) {
+                    Timber.w("ankiNavigateCard(): query parsing/search failed for '%s'", query)
+                    activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
+                    return@withContext convertToByteArray(apiContract, false)
+                }
+
+            Timber.i("ankiNavigateCard(): found %d navigation match(es)", matches.size)
+            when {
+                matches.isEmpty() -> {
+                    activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
+                    convertToByteArray(apiContract, false)
+                }
+                matches.size == 1 -> {
+                    activity.showSnackbar("Opening linked preview", Snackbar.LENGTH_SHORT)
+                    openPreviewForCard(matches.single().cardId)
+                    convertToByteArray(apiContract, true)
+                }
+                else -> {
+                    showNavigationMatchPicker(matches)
+                    convertToByteArray(apiContract, true)
+                }
+            }
+        }
+
+    private suspend fun findNavigationMatches(query: String): List<NavigationMatch> {
+        val searchString = withCol { SearchString.fromUserInput(query) }.getOrThrow()
+        val cards =
+            searchForRows(searchString, SortOrder.UseCollectionOrdering, CardsOrNotes.CARDS)
+                .map { withCol { getCard(it.cardOrNoteId) } }
+
+        // Navigation is note-centric for now: if multiple cards from the same note match,
+        // collapse them to a single preview target so a two-card note is not treated as ambiguous.
+        return cards
+            .groupBy { it.nid }
+            .values
+            .map { matchesForNote ->
+                val primaryCard = matchesForNote.minWith(compareBy<Card> { it.ord }.thenBy { it.id })
+                val preview = primaryCard.note(getColUnsafe).fields.firstOrNull().orEmpty()
+                val deckName = Decks.basename(getColUnsafe.decks.name(primaryCard.did))
+                NavigationMatch(
+                    cardId = primaryCard.id,
+                    noteId = primaryCard.nid,
+                    preview = preview,
+                    deckName = deckName,
+                )
+            }
+            .distinctBy { it.noteId }
+    }
+
+    private fun openPreviewForCard(cardId: Long) {
+        val idsFile = IdsFile(activity.cacheDir, listOf(cardId), prefix = "linked-preview")
+        val intent = PreviewerDestination(currentIndex = 0, idsFile = idsFile).toIntent(context)
+        activity.startActivity(intent)
+    }
+
+    private fun showNavigationMatchPicker(matches: List<NavigationMatch>) {
+        val items =
+            matches.map { match ->
+                val preview = match.preview.ifBlank { "(blank)" }
+                "$preview • ${match.deckName}"
+            }.toTypedArray()
+
+        AlertDialog.Builder(activity)
+            .setTitle("Choose linked card")
+            .setItems(items) { _, which ->
+                val match = matches[which]
+                Timber.i("ankiNavigateCard(): opening picked match note=%d card=%d", match.noteId, match.cardId)
+                openPreviewForCard(match.cardId)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private data class NavigationMatch(
+        val cardId: Long,
+        val noteId: Long,
+        val preview: String,
+        val deckName: String,
+    )
 
     open class CardDataForJsApi {
         var newCardCount: Int = -1

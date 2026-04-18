@@ -1,0 +1,75 @@
+<div id="character-type-back" class="chinese-big"></div>
+{{Back}}
+<br><br>
+<span class="answer-cue">Type the Mandarin and speak:</span>
+<br>
+{{type:Front}}
+
+<script>
+    var typeContainer = document.getElementById('character-type-back');
+    var frontContent = "{{text:Front}}";
+
+    // Clear previous state
+    typeContainer.textContent = '';
+    typeContainer.className = '';
+
+    // Apply the new class and set the text content
+    if (frontContent.trim().length === 1 || (frontContent.trim().length === 2 && frontContent.trim().charAt(1) === '.') ) {
+      typeContainer.className = 'char-length-message';
+      typeContainer.textContent = '(single character)';
+    } else if (frontContent.trim().length > 1) {
+      typeContainer.className = 'char-length-message';
+      typeContainer.textContent = '(multi character)';
+    }
+
+    /* Prevent keyboard from auto-popping by blurring the type-answer input */
+    setTimeout(function() {
+      var typeans = document.getElementById('typeans');
+      if (typeans) typeans.blur();
+    }, 50);
+
+    (function() {
+      var ENABLED_KEY = 'outrankiAutoReturnEnabled';
+      var PENDING_KEY = 'outrankiPendingReturnAt';
+      var pendingAt = 0;
+
+      function getCookie(name) {
+        var prefix = name + '=';
+        var parts = document.cookie ? document.cookie.split(';') : [];
+        for (var i = 0; i < parts.length; i++) {
+          var part = parts[i].trim();
+          if (part.indexOf(prefix) === 0) {
+            return decodeURIComponent(part.substring(prefix.length));
+          }
+        }
+        return '';
+      }
+
+      function clearCookie(name) {
+        document.cookie = name + '=; path=/; max-age=0';
+      }
+
+      try {
+        if (typeof AnkiDroidJS === 'undefined') return;
+        var ankidroid = new AnkiDroidJS({ version: "0.0.3", developer: "your_email_here" });
+        if (!ankidroid) return;
+      } catch (e) {
+        return;
+      }
+
+      if (getCookie(ENABLED_KEY) !== '1') {
+        clearCookie(PENDING_KEY);
+        return;
+      }
+
+      pendingAt = parseInt(getCookie(PENDING_KEY) || '', 10);
+      if (!pendingAt) return;
+
+      clearCookie(PENDING_KEY);
+      if (Date.now() - pendingAt > 15000) return;
+
+      setTimeout(function() {
+        window.location.href = 'outranki://study';
+      }, 120);
+    })();
+</script>
