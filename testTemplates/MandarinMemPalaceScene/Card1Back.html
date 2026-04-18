@@ -1,18 +1,4 @@
-<!--
-   Header: FrontSide and stop all audio button
--->
-<table style="width:100%; border-collapse:collapse;">
-    <tr>
-        <td style="text-align:center; border:none; vertical-align:top; width:90%;">
-            {{FrontSide}}
-        </td>
-        <td style="text-align:center; border:none; vertical-align:top; width:10%;">
-            <div class="stop-button-container">
-                [sound:_silent_for_stop.mp3]
-            </div>
-        </td>
-    </tr>
-</table>
+{{FrontSide}}
 <br><br>
 
 <!--
@@ -24,7 +10,6 @@
     | <a href="https://hanpingchinese.com/cmn/word?t={{url:Front}}">Hanping</a>
 </div>
 <span id="ac-front-content" style="display:none;">{{Front}}</span>
-
 
 <!--
    Link to ArchChinese when single character
@@ -67,94 +52,7 @@
 
 <hr>
 
-
-
-
-<!--
-   Main script
--->
 <script>
-    /* ---------------
-         CONFIG
-      *--------------- */
-    const playbackSpeeds = [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5];   // playback-rate menu
-    const repeatOptions  = [1, 2, 3, 5,10];                             // repeat-count menu
-    const repeatSymbol   = '\u21BB';  //     used for both innerHTML & textContent
-    const repeatDelay    = 150;       // ms between repeated plays
-    const cardInitDelay  = 150;       // ms before initializeCard() runs
-    const autoPlayDelay  = 300;       // ms before auto-playing the first player
-    const defaultRepeat  = 3;         // initial repeat count
-    let repeatTarget = defaultRepeat;
-    let repeatCount  = 0;
-    let   playerCounter   = 0;             // unique ids
-    window.currentlyPlaying = null;   // track active player
-
-    /* ---------------
-         FIELD ? CUSTOM PLAYER
-      *--------------- */
-    window.renderFieldWithPlayers = function (sourceId, targetId) {
-        try {
-            const source = document.getElementById(sourceId);
-            const target = document.getElementById(targetId);
-            if (!source || !target) return;
-
-            const raw = source.innerHTML;
-            let html = '';
-
-            if (!raw.includes('{')) {
-                html = raw;
-            } else {
-                const stripped = raw.replace(/{[^\S\r\n]*\*[^*]*\*[^\S\r\n]*}/g, '');
-                const parts = stripped.split(/({[^}]+})/g).filter(Boolean);
-
-                parts.forEach(part => {
-                    if (part.startsWith('{') && part.endsWith('}')) {
-                        const fn = part.slice(1, -1).trim();
-                        if (fn) {
-                            playerCounter++;
-                            const id = `player_${playerCounter}`;
-                            html += `
-                                <div class="custom-audio-player-container" id="${id}">
-                                    <audio class="audio-element" src="${fn}" preload="metadata"></audio>
-                                    <div class="custom-audio-player">
-                                        <button class="play-pause-btn">
-                                            <svg class="play-icon" viewBox="0 0 24 24" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
-                                            <svg class="pause-icon" viewBox="0 0 24 24" width="24" height="24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                                        </button>
-                                        <div class="progress-bar-container"><div class="progress-fill"></div></div>
-                                        <div class="speed-control"><button class="speed-btn">1.0x</button><div class="speed-menu"></div></div>
-                                        <div class="speed-control repeat-control"><button class="repeat-btn">${repeatTarget}${repeatSymbol}</button><div class="repeat-menu" style="display:none"></div></div>
-                                    </div>
-                                </div>`;
-                        }
-                    } else {
-                        html += part;
-                    }
-                });
-            }
-
-            target.innerHTML = html;
-
-            target.querySelectorAll('.custom-audio-player-container').forEach(p => {
-                if (!p.classList.contains('initialized')) {
-                    initializeCustomPlayer(p.id);
-                    p.classList.add('initialized');
-                }
-            });
-
-            applyHiddenLineToggles(target);
-        } catch (err) {
-            console.error('renderFieldWithPlayers:', err);
-        }
-    };
-    /* ---------------
-         PLAYER LOGIC
-      *--------------- */
-
-
-    /* ---------------
-         HIDDEN LINE LOGIC
-      *--------------- */
     window.getLastTextNodeDeep = function (node) {
         if (!node) return null;
 
@@ -239,7 +137,7 @@
             if (hidden) {
                 content.classList.remove('is-hidden');
                 content.classList.add('is-revealed');
-                btn.textContent = '';
+                btn.textContent = '-';
             } else {
                 content.classList.remove('is-revealed');
                 content.classList.add('is-hidden');
@@ -292,260 +190,54 @@
         target.appendChild(rebuilt);
         target.dataset.hiddenLinesProcessed = '1';
     };
-
-
-    window.initializeCustomPlayer = function (playerId) {
-        const wrapper        = document.getElementById(playerId);
-        if (!wrapper) return;
-
-        const audio          = wrapper.querySelector('.audio-element');
-        const playPauseBtn   = wrapper.querySelector('.play-pause-btn');
-        const progressBar    = wrapper.querySelector('.progress-bar-container');
-        const progressFill   = wrapper.querySelector('.progress-fill');
-        const speedBtn       = wrapper.querySelector('.speed-btn');
-        const speedMenu      = wrapper.querySelector('.speed-menu');
-        const repeatBtn      = wrapper.querySelector('.repeat-btn');
-        const repeatMenu     = wrapper.querySelector('.repeat-menu');
-
-        /* build speed menu */
-        speedMenu.innerHTML = '';
-        playbackSpeeds.forEach(sp => {
-            const a      = document.createElement('a');
-            a.href       = '#';
-            a.textContent= `${sp.toFixed(1)}x`;
-            a.dataset.speed = sp;
-            speedMenu.appendChild(a);
-        });
-
-        /* build repeat menu */
-        repeatMenu.innerHTML = '';
-        repeatOptions.forEach(rv => {
-            const a      = document.createElement('a');
-            a.href       = '#';
-            a.textContent= `${rv}${repeatSymbol}`;
-            a.dataset.repeat = String(rv);
-            repeatMenu.appendChild(a);
-        });
-
-        /* play / pause */
-        playPauseBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
-
-        audio.addEventListener('play', () => {
-            if (typeof pycmd === 'function') pycmd('stopAudio');
-            document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
-            if (window.currentlyPlaying && window.currentlyPlaying !== audio) {
-                window.currentlyPlaying.pause();
-            }
-            window.currentlyPlaying = audio;
-            playPauseBtn.classList.add('playing');
-        });
-
-        audio.addEventListener('pause', () => {
-            if (window.currentlyPlaying === audio) window.currentlyPlaying = null;
-            playPauseBtn.classList.remove('playing');
-        });
-
-        audio.addEventListener('timeupdate', () => {
-            if (audio.duration) {
-                const pct = (audio.currentTime / audio.duration) * 100;
-                progressFill.style.width = `${pct}%`;
-            }
-        });
-
-        audio.addEventListener('ended', () => {
-            progressFill.style.width = '0%';
-            playPauseBtn.classList.remove('playing');
-            audio.currentTime = 0;
-        });
-
-        /* repeat: second ended listener  only acts when repeatTarget > 1 */
-        audio.addEventListener('ended', () => {
-            if (repeatTarget <= 1) return;
-            repeatCount++;
-            if (repeatCount < repeatTarget) {
-                setTimeout(() => { playPauseBtn.click(); }, repeatDelay);
-            } else {
-                repeatCount = 0;
-            }
-        });
-
-        /* seek */
-        progressBar.addEventListener('click', e => {
-            if (!audio.duration) return;
-            const rect  = progressBar.getBoundingClientRect();
-            const pos   = (e.clientX - rect.left) / rect.width;
-            audio.currentTime = pos * audio.duration;
-        });
-
-        /* speed selection */
-        speedBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            const visible = speedMenu.style.display === 'flex';
-            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
-            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
-            if (!visible) speedMenu.style.display = 'flex';
-        });
-
-        speedMenu.addEventListener('click', e => {
-            if (e.target.tagName !== 'A') return;
-            e.preventDefault();
-            const rate = parseFloat(e.target.dataset.speed);
-            audio.playbackRate = rate;
-            speedBtn.textContent = `${rate.toFixed(1)}x`;
-            speedMenu.style.display = 'none';
-        });
-
-        /* repeat selection */
-        repeatBtn.addEventListener('click', e => {
-            e.stopPropagation();
-            const visible = repeatMenu.style.display === 'flex';
-            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
-            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
-            if (!visible) repeatMenu.style.display = 'flex';
-        });
-
-        repeatMenu.addEventListener('click', e => {
-            if (e.target.tagName !== 'A') return;
-            e.preventDefault();
-            repeatTarget = parseInt(e.target.dataset.repeat, 10);
-            repeatCount  = 0;
-            repeatBtn.textContent = `${repeatTarget}${repeatSymbol}`;
-            repeatMenu.style.display = 'none';
-        });
-    };
-
-    /* hide any open menus when user clicks elsewhere */
-    document.getElementById('qa').addEventListener('click', e => {
-        if (!e.target.closest('.speed-control') && !e.target.closest('.repeat-control')) {
-            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
-            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
-        }
-    }, true);
-
-    /* ---------------
-         GLOBAL STOP BUTTON
-      *--------------- */
-    window.setupStopButtonListener = function () {
-        const btn = document.querySelector('.stop-button-container');
-        if (!btn || btn.classList.contains('stop-initialized')) return;
-
-        btn.addEventListener('click', () => {
-            if (typeof pycmd === 'function') pycmd('stopAudio');
-            document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
-            if (window.currentlyPlaying && !window.currentlyPlaying.paused)
-                window.currentlyPlaying.pause();
-        });
-        btn.classList.add('stop-initialized');
-    };
-
-    /* show / hide stop button if any audio exists */
-    window.checkAndShowStopButton = function () {
-        const btn = document.querySelector('.stop-button-container');
-        if (!btn) return;
-
-        const customPlayers      = document.querySelectorAll('.custom-audio-player-container').length;
-        const otherAnkiPlayers   = [...document.querySelectorAll('.replay-button')]
-                                   .filter(b => !b.closest('.stop-button-container')).length;
-        btn.style.display = customPlayers + otherAnkiPlayers > 0 ? 'block' : 'none';
-    };
-
-    /* ---------------
-         CARD BOOTSTRAP
-      *--------------- */
-    window.initializeCard = function () {
-        if (typeof pycmd === 'function') pycmd('stopAudio'); // cancel native autoplay before script takes over
-        document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
-        setupStopButtonListener();
-        checkAndShowStopButton();
-    };
-
-    /* give Anki a moment to inject built-in players, then init ours */
-    setTimeout(window.initializeCard, cardInitDelay);
-
 </script>
-
-
-
 
 <!-- Native nav selection controls are provided by AnkiDroid when ankidroid-nav-config is present. -->
 
-
-
-
-<!--
-   Fields
--->
 {{#Pinyin}}
 <div class="field-container pinyin-field">
     <div class="field-label">Pinyin for the entry:</div><br>
-    <div id="target-Pinyin"></div>
-    <div id="source-Pinyin" style="display: none;">{{Pinyin}}</div>
-    <script>
-        setTimeout(function() {
-            if (typeof renderFieldWithPlayers === 'function') {
-                renderFieldWithPlayers('source-Pinyin', 'target-Pinyin');
-            }
-        }, 0);
-    </script>
+    <div class="field-rich-content">{{Pinyin}}</div>
 </div>
 <hr>
 {{/Pinyin}}
 
-
 {{#Scene}}
 <div class="field-container scene-field">
     <br><div class="field-label">Scene:</div><br>
-    <div id="target-Scene"></div>
-    <div id="source-Scene" style="display: none;">{{Scene}}</div>
-    <script>
-        setTimeout(function() {
-            if (typeof renderFieldWithPlayers === 'function') {
-                renderFieldWithPlayers('source-Scene', 'target-Scene');
-            }
-        }, 0);
-    </script>
+    <div class="field-rich-content">{{Scene}}</div>
 </div>
 <hr>
 {{/Scene}}
 
-
-
-
 {{#Reason}}
 <div class="field-container reason-field">
     <br><div class="field-label">Reason (Actor, Set, Props):</div><br>
-    <div id="target-Reason"></div>
-    <div id="source-Reason" style="display: none;">{{Reason}}</div>
-    <script>
-        setTimeout(function() {
-            if (typeof renderFieldWithPlayers === 'function') {
-                renderFieldWithPlayers('source-Reason', 'target-Reason');
-            }
-        }, 0);
-    </script>
+    <div class="field-rich-content">{{Reason}}</div>
 </div>
 <hr>
 {{/Reason}}
 
-
 {{#Examples}}
 <div class="field-container examples-field">
     <br><div class="field-label">Examples:</div><br>
-    <div id="target-Examples"></div>
-    <div id="source-Examples" style="display: none;">{{Examples}}</div>
-    <script>
-        setTimeout(function() {
-            if (typeof renderFieldWithPlayers === 'function') {
-                renderFieldWithPlayers('source-Examples', 'target-Examples');
-            }
-        }, 0);
-    </script>
+    <div class="field-rich-content">{{Examples}}</div>
 </div>
 <hr>
 {{/Examples}}
 
-
 {{HSK Frequency}}
+
+<script id="ankidroid-audio-config" type="application/json">
+{
+  "playbackSpeeds": [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5],
+  "defaultPlaybackSpeed": 1.0,
+  "repeatCounts": [1, 2, 3, 5, 10],
+  "defaultRepeatCount": 3,
+  "gapMs": 150,
+  "showStopAllButton": true
+}
+</script>
 
 <script id="ankidroid-nav-config" type="application/json">
 {
@@ -579,13 +271,12 @@
 }
 </script>
 
-<!-- Auto-play first audio player on card load (respects repeat count) -->
 <script>
     setTimeout(function() {
-        if (typeof pycmd === 'function') pycmd('stopAudio');
-        document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
-        var firstPlayBtn = document.querySelector('.custom-audio-player-container .play-pause-btn');
-        if (firstPlayBtn) firstPlayBtn.click();
-    }, autoPlayDelay);
+        document.querySelectorAll('.field-rich-content').forEach(function(target) {
+            if (typeof applyHiddenLineToggles === 'function') {
+                applyHiddenLineToggles(target);
+            }
+        });
+    }, 0);
 </script>
-
