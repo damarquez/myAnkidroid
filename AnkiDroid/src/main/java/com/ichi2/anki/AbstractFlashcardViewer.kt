@@ -131,7 +131,9 @@ import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.multimedia.getAvTag
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NavigationMatch
+import com.ichi2.anki.navigation.buildKnownDecksInjectionJs
 import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.loadKnownDeckNames
 import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
 import com.ichi2.anki.observability.ChangeManager
@@ -509,7 +511,10 @@ abstract class AbstractFlashcardViewer :
 
     /** Invoked by [CardViewerWebClient.onPageFinished] */
     override fun onPageFinished(view: WebView) {
-        // intentionally blank
+        launchCatchingTask {
+            val names = runCatching { loadKnownDeckNames() }.getOrNull() ?: return@launchCatchingTask
+            view.evaluateJavascript(buildKnownDecksInjectionJs(names), null)
+        }
     }
 
     /** Called after an undo or undoable operation takes place. * Should set currentCard to the current card to display. */

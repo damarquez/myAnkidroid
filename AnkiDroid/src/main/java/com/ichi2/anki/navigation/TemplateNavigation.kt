@@ -7,6 +7,7 @@ import com.ichi2.anki.libanki.Decks
 import com.ichi2.anki.libanki.SortOrder
 import com.ichi2.anki.model.CardsOrNotes
 import com.ichi2.anki.searchForRows
+import org.json.JSONArray
 import org.json.JSONObject
 
 const val NAVIGATION_OPEN_MODE_ANSWER = "answer"
@@ -44,6 +45,10 @@ fun parseNavigationRequest(payload: String): NavigationRequest {
         NavigationRequest(trimmed, NAVIGATION_OPEN_MODE_QUESTION)
     }
 }
+
+suspend fun loadKnownDeckNames(): List<String> = withCol { decks.allNamesAndIds().map { it.name } }
+
+fun buildKnownDecksInjectionJs(names: List<String>): String = "window.__ankidroidKnownDecks = ${JSONArray(names)};"
 
 suspend fun findNavigationMatches(query: String): List<NavigationMatch> {
     val searchString = withCol { SearchString.fromUserInput(query) }.getOrThrow()

@@ -40,6 +40,8 @@ import com.ichi2.anki.ViewerResourceHandler
 import com.ichi2.anki.compat.CompatHelper.Companion.resolveActivityCompat
 import com.ichi2.anki.dialogs.TtsVoicesDialogFragment
 import com.ichi2.anki.localizedErrorMessage
+import com.ichi2.anki.navigation.buildKnownDecksInjectionJs
+import com.ichi2.anki.navigation.loadKnownDeckNames
 import com.ichi2.anki.snackbar.showSnackbar
 import com.ichi2.anki.utils.ext.collectIn
 import com.ichi2.anki.utils.ext.packageManager
@@ -51,6 +53,7 @@ import com.ichi2.themes.Themes
 import com.ichi2.utils.show
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 abstract class CardViewerFragment(
@@ -185,6 +188,14 @@ abstract class CardViewerFragment(
                 viewModel.onPageFinished(isAfterRecreation = savedInstanceState != null)
             }
             hasLoaded = true
+            injectKnownDeckNames()
+        }
+
+        private fun injectKnownDeckNames() {
+            lifecycleScope.launch {
+                val names = runCatching { loadKnownDeckNames() }.getOrNull() ?: return@launch
+                webViewLayout.evaluateJavascript(buildKnownDecksInjectionJs(names))
+            }
         }
 
         override fun shouldOverrideUrlLoading(

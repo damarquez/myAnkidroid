@@ -61,16 +61,33 @@
             .replace(/^\s*\/\/.*$/gm, "");
     }
 
+    function deckExists(entry) {
+        const known = window.__ankidroidKnownDecks;
+        // If we haven't received the list yet, don't filter — avoids hiding buttons
+        // during the brief window between page load and native injection.
+        if (!Array.isArray(known) || known.length === 0) return true;
+        const target = String((entry && entry.deck) || "").toLowerCase();
+        if (!target) return false;
+        return known.some(name => String(name).toLowerCase() === target);
+    }
+
     function getSearchConfig() {
         const configEl = document.getElementById("ankidroid-nav-config");
         if (!configEl) return null;
         try {
             const parsed = JSON.parse(stripJsonComments(configEl.textContent || "{}"));
-            return {
-                character: parsed.character || null,
-                singleCharWord: parsed.singleCharWord || null,
-                word: parsed.word || null,
-            };
+            const sections = ["character", "singleCharWord", "word"];
+            const result = { character: null, singleCharWord: null, word: null, missingDecks: [] };
+            for (const key of sections) {
+                const entry = parsed[key];
+                if (!entry) continue;
+                if (deckExists(entry)) {
+                    result[key] = entry;
+                } else {
+                    result.missingDecks.push(entry.deck);
+                }
+            }
+            return result;
         } catch (e) {
             return null;
         }
@@ -118,6 +135,13 @@
 
         const config = getSearchConfig();
         if (!config) return;
+
+        const hasAnySection = config.character || config.singleCharWord || config.word;
+        if (!hasAnySection && config.missingDecks && config.missingDecks.length) {
+            const unique = Array.from(new Set(config.missingDecks));
+            showDebugBadge("nav: unknown deck " + unique.join(", "), "#c62828");
+            return;
+        }
 
         const isSingleChar = clean.length === 1;
 
@@ -237,17 +261,30 @@
     );
 
     // Visible load confirmation. Polls briefly because the card content (which
-    // contains #ankidroid-nav-config) is injected after the initial HTML loads.
+    // contains #ankidroid-nav-config) and the known-decks list are both pushed
+    // into the page after the initial HTML loads.
     (function announceReady() {
         showDebugBadge("nav: script loaded", "#1565c0");
         let tries = 0;
         const iv = setInterval(() => {
             tries++;
-            if (document.getElementById("ankidroid-nav-config")) {
-                showDebugBadge("nav: config OK", "#2e7d32");
+            const hasConfigEl = !!document.getElementById("ankidroid-nav-config");
+            const hasDecks = Array.isArray(window.__ankidroidKnownDecks);
+            if (hasConfigEl && hasDecks) {
+                const config = getSearchConfig();
+                const anySection =
+                    config && (config.character || config.singleCharWord || config.word);
+                if (anySection) {
+                    showDebugBadge("nav: config OK", "#2e7d32");
+                } else if (config && config.missingDecks && config.missingDecks.length) {
+                    const unique = Array.from(new Set(config.missingDecks));
+                    showDebugBadge("nav: unknown deck " + unique.join(", "), "#c62828");
+                } else {
+                    showDebugBadge("nav: empty config", "#c62828");
+                }
                 clearInterval(iv);
             } else if (tries > 20) {
-                showDebugBadge("nav: no config", "#c62828");
+                showDebugBadge(hasConfigEl ? "nav: decks unknown" : "nav: no config", "#c62828");
                 clearInterval(iv);
             }
         }, 500);
