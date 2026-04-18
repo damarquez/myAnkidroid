@@ -79,7 +79,7 @@
       *--------------- */
     const playbackSpeeds = [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5];   // playback-rate menu
     const repeatOptions  = [1, 2, 3, 5,10];                             // repeat-count menu
-    const repeatSymbol   = '\u21BB';  //   � used for both innerHTML & textContent
+    const repeatSymbol   = '\u21BB';  //     used for both innerHTML & textContent
     const repeatDelay    = 150;       // ms between repeated plays
     const cardInitDelay  = 150;       // ms before initializeCard() runs
     const autoPlayDelay  = 300;       // ms before auto-playing the first player
@@ -468,6 +468,7 @@
 
 
 
+<!-- Native nav selection controls are provided by AnkiDroid when ankidroid-nav-config is present. -->
 
 
 
@@ -546,6 +547,38 @@
 
 
 {{HSK Frequency}}
+
+<script id="ankidroid-nav-config" type="application/json">
+{
+  // matchMode: "exact" | "partial"
+  // openMode: "question" | "answer"
+  "character": {
+    "deck": "MandarinMP::Characters",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  },
+  // singleCharWord is used by the "Word" button when only one character is selected.
+  "singleCharWord": {
+    "deck": "MandarinMP::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": "."
+  },
+  "word": {
+    "deck": "MandarinMP::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  }
+}
+</script>
 
 <!-- Auto-play first audio player on card load (respects repeat count) -->
 <script>

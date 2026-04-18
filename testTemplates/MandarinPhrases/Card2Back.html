@@ -1,0 +1,267 @@
+<table style="width:100%; border-collapse:collapse;">
+  <tr>
+    <td style="text-align:center; border:none; vertical-align:top; width:90%;">
+		<span class="chinese">{{Mandarin}}</span>
+		<br><br>
+		{{type:Meaning}}
+    </td>
+    <td style="text-align:center; border:none; vertical-align:top; width:10%;">
+      <div class="stop-button-container">
+        [sound:_silent_for_stop.mp3]
+      </div>
+    </td>
+  </tr>
+</table>
+
+<br><br>
+
+
+
+
+
+{{#Pinyin}}
+<div class="field-container pinyin-field">
+    <div class="field-label">Pinyin:</div><br>
+    <div id="target-Pinyin"></div>
+    <div id="source-Pinyin" style="display: none;">{{Pinyin}}</div>
+    <script>
+        setTimeout(function() {
+            if (typeof renderFieldWithPlayers === 'function') {
+                renderFieldWithPlayers('source-Pinyin', 'target-Pinyin');
+            }
+        }, 0);
+    </script>
+</div>
+<hr>
+{{/Pinyin}}
+
+<div style="text-align: left;"> 
+{{Comment}} 
+</div>
+
+
+
+
+<!--
+   Main script
+-->
+<script>
+/* ─────────────── 
+     CONFIG 
+  *─────────────── */
+const playbackSpeeds = [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5];   // playback-rate menu
+let   playerCounter   = 0;                                    // unique ids
+window.currentlyPlaying = null;                               // track active player
+
+/* ─────────────── 
+     FIELD → CUSTOM PLAYER 
+  *─────────────── */
+window.renderFieldWithPlayers = function (sourceId, targetId) {
+    try {
+        const source = document.getElementById(sourceId);
+        const target = document.getElementById(targetId);
+        if (!source || !target) return;
+
+        const raw = source.innerHTML;
+        if (!raw.includes('{')) {          // nothing to replace
+            target.innerHTML = raw;
+            return;
+        }
+
+        let html = '';
+        const stripped   = raw.replace(/{[^\S\r\n]*\*[^*]*\*[^\S\r\n]*}/g, '');  // remove {*…*}
+        const parts      = stripped.split(/({[^}]+})/g).filter(Boolean);         // keep braces
+
+        parts.forEach(part => {
+            if (part.startsWith('{') && part.endsWith('}')) {
+                const fn = part.slice(1, -1).trim();        // {audio.mp3} → audio.mp3
+                if (fn) {
+                    playerCounter++;
+                    const id = `player_${playerCounter}`;
+                    html += `
+                        <div class="custom-audio-player-container" id="${id}">
+                            <audio class="audio-element" src="${fn}" preload="metadata"></audio>
+                            <div class="custom-audio-player">
+                                <button class="play-pause-btn">
+                                    <svg class="play-icon"  viewBox="0 0 24 24" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
+                                    <svg class="pause-icon" viewBox="0 0 24 24" width="24" height="24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                </button>
+                                <div class="progress-bar-container"><div class="progress-fill"></div></div>
+                                <div class="speed-control"><button class="speed-btn">1.0x</button><div class="speed-menu"></div></div>
+                            </div>
+                        </div>`;
+                }
+            } else {
+                html += part;               // normal text
+            }
+        });
+
+        target.innerHTML = html;
+        target.querySelectorAll('.custom-audio-player-container').forEach(p => {
+            if (!p.classList.contains('initialized')) {
+                initializeCustomPlayer(p.id);
+                p.classList.add('initialized');
+            }
+        });
+    } catch (err) { console.error('renderFieldWithPlayers:', err); }
+};
+
+/* ─────────────── 
+     PLAYER LOGIC 
+  *─────────────── */
+window.initializeCustomPlayer = function (playerId) {
+    const wrapper        = document.getElementById(playerId);
+    if (!wrapper) return;
+
+    const audio          = wrapper.querySelector('.audio-element');
+    const playPauseBtn   = wrapper.querySelector('.play-pause-btn');
+    const progressBar    = wrapper.querySelector('.progress-bar-container');
+    const progressFill   = wrapper.querySelector('.progress-fill');
+    const speedBtn       = wrapper.querySelector('.speed-btn');
+    const speedMenu      = wrapper.querySelector('.speed-menu');
+
+    /* build speed menu */
+    speedMenu.innerHTML = '';
+    playbackSpeeds.forEach(sp => {
+        const a      = document.createElement('a');
+        a.href       = '#';
+        a.textContent= `${sp.toFixed(1)}x`;
+        a.dataset.speed = sp;
+        speedMenu.appendChild(a);
+    });
+
+    /* play / pause */
+    playPauseBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
+
+    audio.addEventListener('play', () => {
+        /* stop anything Anki’s core is playing */
+        if (typeof pycmd === 'function') pycmd('stopAudio');            // 23.12- plus: ankiBridge('stopAudio')
+        /* pause any other custom player */
+        if (window.currentlyPlaying && window.currentlyPlaying !== audio) {
+            window.currentlyPlaying.pause();
+        }
+        window.currentlyPlaying = audio;
+        playPauseBtn.classList.add('playing');
+    });
+
+    audio.addEventListener('pause', () => {
+        if (window.currentlyPlaying === audio) window.currentlyPlaying = null;
+        playPauseBtn.classList.remove('playing');
+    });
+
+    audio.addEventListener('timeupdate', () => {
+        if (audio.duration) {
+            const pct = (audio.currentTime / audio.duration) * 100;
+            progressFill.style.width = `${pct}%`;
+        }
+    });
+
+    audio.addEventListener('ended', () => {
+        progressFill.style.width = '0%';
+        playPauseBtn.classList.remove('playing');
+        audio.currentTime = 0;
+    });
+
+    /* seek */
+    progressBar.addEventListener('click', e => {
+        if (!audio.duration) return;
+        const rect  = progressBar.getBoundingClientRect();
+        const pos   = (e.clientX - rect.left) / rect.width;
+        audio.currentTime = pos * audio.duration;
+    });
+
+    /* speed selection */
+    speedBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const visible = speedMenu.style.display === 'flex';
+        document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
+        if (!visible) speedMenu.style.display = 'flex';
+    });
+
+    speedMenu.addEventListener('click', e => {
+        if (e.target.tagName !== 'A') return;
+        e.preventDefault();
+        const rate = parseFloat(e.target.dataset.speed);
+        audio.playbackRate = rate;
+        speedBtn.textContent = `${rate.toFixed(1)}x`;
+        speedMenu.style.display = 'none';
+    });
+};
+
+/* hide any open speed menus when user clicks elsewhere */
+document.getElementById('qa').addEventListener('click', e => {
+    if (!e.target.closest('.speed-control'))
+        document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
+}, true);
+
+/* ─────────────── 
+     GLOBAL STOP BUTTON 
+  *─────────────── */
+window.setupStopButtonListener = function () {
+    const btn = document.querySelector('.stop-button-container');
+    if (!btn || btn.classList.contains('stop-initialized')) return;
+
+    btn.addEventListener('click', () => {
+        if (typeof pycmd === 'function') pycmd('stopAudio');
+        if (window.currentlyPlaying && !window.currentlyPlaying.paused)
+            window.currentlyPlaying.pause();
+    });
+    btn.classList.add('stop-initialized');
+};
+
+/* show / hide stop button if any audio exists */
+window.checkAndShowStopButton = function () {
+    const btn = document.querySelector('.stop-button-container');
+    if (!btn) return;
+
+    const customPlayers      = document.querySelectorAll('.custom-audio-player-container').length;
+    const otherAnkiPlayers   = [...document.querySelectorAll('.replay-button')]
+                               .filter(b => !b.closest('.stop-button-container')).length;
+    btn.style.display = customPlayers + otherAnkiPlayers > 0 ? 'block' : 'none';
+};
+
+/* ─────────────── 
+     CARD BOOTSTRAP 
+  *─────────────── */
+window.initializeCard = function () {
+
+    setupStopButtonListener();
+    checkAndShowStopButton();
+};
+
+/* give Anki a moment to inject built-in players, then init ours */
+setTimeout(window.initializeCard, 100);
+</script>
+
+
+<script id="ankidroid-nav-config" type="application/json">
+{
+  // matchMode: "exact" | "partial"
+  // openMode: "question" | "answer"
+  "character": {
+    "deck": "TargetDeck::Characters",
+    "field": "Front",
+    "matchMode": "partial",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  },
+  // singleCharWord is used by the "Word" button when only one character is selected.
+  "singleCharWord": {
+    "deck": "TargetDeck::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": "."
+  },
+  "word": {
+    "deck": "TargetDeck::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  }
+}
+</script>
