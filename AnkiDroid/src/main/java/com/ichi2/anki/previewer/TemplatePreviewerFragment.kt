@@ -15,19 +15,29 @@
  */
 package com.ichi2.anki.previewer
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.webkit.WebView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.os.bundleOf
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.ichi2.anki.R
+import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.databinding.FragmentTemplatePreviewerBinding
 import com.ichi2.anki.libanki.CardOrdinal
+import com.ichi2.anki.navigation.NavigationMatch
+import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
+import com.ichi2.anki.snackbar.showSnackbar
 import com.ichi2.anki.workarounds.SafeWebViewLayout
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 class TemplatePreviewerFragment :
     CardViewerFragment(R.layout.fragment_template_previewer),
@@ -40,6 +50,32 @@ class TemplatePreviewerFragment :
 
     override val baseSnackbarBuilder: SnackbarBuilder
         get() = { anchorView = binding.showAnswer }
+
+    override fun onLoadInitialHtml(): String =
+        stdHtml(
+            context = requireContext(),
+            extraJsAssets = listOf("scripts/ankidroid-selection-nav.js"),
+            nightMode = com.ichi2.themes.Themes.isNightTheme,
+        )
+
+    override fun onCreateWebViewClient(savedInstanceState: Bundle?): CardViewerWebViewClient =
+        object : CardViewerWebViewClient(savedInstanceState) {
+            override fun handleUrl(
+                webView: WebView,
+                url: Uri,
+            ): Boolean {
+                if (url.scheme == "ankidroid-preview" && url.host == "navigate-card") {
+                    val payload =
+                        url.getQueryParameter("payload")
+                            ?: url
+                                .getQueryParameter("search")
+                                .orEmpty()
+                    openLinkedPreviewSearch(payload)
+                    return true
+                }
+                return super.handleUrl(webView, url)
+            }
+        }
 
     override fun onViewCreated(
         view: View,
@@ -63,6 +99,64 @@ class TemplatePreviewerFragment :
             }.launchIn(lifecycleScope)
 
         binding.webViewContainer.setFrameStyle()
+    }
+
+    private fun openLinkedPreviewSearch(payload: String) {
+        lifecycleScope.launch {
+            val request = parseNavigationRequest(payload)
+            if (request.query.isBlank()) {
+                showSnackbar(getString(R.string.search_card_js_api_no_results))
+                return@launch
+            }
+
+            val matches =
+                runCatching { findNavigationMatches(request.query) }
+                    .getOrElse {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                        return@launch
+                    }
+
+            when {
+                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.size == 1 -> openLinkedCardPreview(matches.single().cardId, request.openMode)
+                else -> showNavigationMatchPicker(matches, request.openMode)
+            }
+        }
+    }
+
+    private fun openLinkedCardPreview(
+        cardId: Long,
+        openMode: String,
+    ) {
+        val idsFile = IdsFile(requireContext().cacheDir, listOf(cardId), prefix = "linked-preview")
+        val intent =
+            PreviewerFragment.getIntent(
+                requireContext(),
+                idsFile = idsFile,
+                currentIndex = 0,
+                showAnswer = openMode == com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER,
+            )
+        startActivity(intent)
+    }
+
+    private fun showNavigationMatchPicker(
+        matches: List<NavigationMatch>,
+        openMode: String,
+    ) {
+        val items =
+            matches
+                .map { match ->
+                    val preview = match.preview.ifBlank { "(blank)" }
+                    "$preview • ${match.deckName}"
+                }.toTypedArray()
+
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle("Choose linked card")
+            .setItems(items) { _, which ->
+                openLinkedCardPreview(matches[which].cardId, openMode)
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /**
