@@ -36,18 +36,16 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.slider.Slider
-import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.DispatchKeyEventListener
 import com.ichi2.anki.Flag
 import com.ichi2.anki.R
 import com.ichi2.anki.browser.IdsFile
-import com.ichi2.anki.browser.search.SearchString
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.databinding.FragmentPreviewerBinding
-import com.ichi2.anki.libanki.Card
-import com.ichi2.anki.libanki.Decks
-import com.ichi2.anki.libanki.SortOrder
-import com.ichi2.anki.model.CardsOrNotes
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
+import com.ichi2.anki.navigation.NavigationMatch
+import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.previewer.PreviewerFragment.Companion.CARD_IDS_FILE_ARG
 import com.ichi2.anki.reviewer.BindingMap
 import com.ichi2.anki.reviewer.BindingProcessor
@@ -59,11 +57,11 @@ import com.ichi2.anki.toIntent
 import com.ichi2.anki.utils.ext.collectIn
 import com.ichi2.anki.utils.ext.sharedPrefs
 import com.ichi2.anki.workarounds.SafeWebViewLayout
+import com.ichi2.themes.Themes
 import com.ichi2.utils.performClickIfEnabled
 import dev.androidbroadcast.vbpd.viewBinding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 class PreviewerFragment :
     CardViewerFragment(R.layout.fragment_previewer),
@@ -221,6 +219,13 @@ class PreviewerFragment :
         }
     }
 
+    override fun onLoadInitialHtml(): String =
+        stdHtml(
+            context = requireContext(),
+            extraJsAssets = listOf("scripts/ankidroid-selection-nav.js"),
+            nightMode = Themes.isNightTheme,
+        )
+
     override fun onCreateWebViewClient(savedInstanceState: Bundle?): CardViewerWebViewClient =
         object : CardViewerWebViewClient(savedInstanceState) {
             override fun handleUrl(
@@ -361,39 +366,6 @@ class PreviewerFragment :
         }
     }
 
-    private suspend fun findNavigationMatches(query: String): List<NavigationMatch> {
-        val searchString = withCol { SearchString.fromUserInput(query) }.getOrThrow()
-        val cards =
-            com.ichi2.anki
-                .searchForRows(searchString, SortOrder.UseCollectionOrdering, CardsOrNotes.CARDS)
-                .map { withCol { getCard(it.cardOrNoteId) } }
-
-        return cards
-            .groupBy { it.nid }
-            .values
-            .map { matchesForNote ->
-                val primaryCard = matchesForNote.minWith(compareBy<Card> { it.ord }.thenBy { it.id })
-                val preview =
-                    withCol {
-                        primaryCard
-                            .note(this)
-                            .fields
-                            .firstOrNull()
-                            .orEmpty()
-                    }
-                val deckName =
-                    withCol {
-                        Decks.basename(decks.name(primaryCard.did))
-                    }
-                NavigationMatch(
-                    cardId = primaryCard.id,
-                    noteId = primaryCard.nid,
-                    preview = preview,
-                    deckName = deckName,
-                )
-            }.distinctBy { it.noteId }
-    }
-
     private fun showNavigationMatchPicker(
         matches: List<NavigationMatch>,
         openMode: String,
@@ -414,47 +386,13 @@ class PreviewerFragment :
             .show()
     }
 
-    private fun parseNavigationRequest(payload: String): NavigationRequest {
-        val trimmed = payload.trim()
-        if (trimmed.isBlank()) {
-            return NavigationRequest("", OPEN_MODE_QUESTION)
-        }
-        return runCatching {
-            val data = JSONObject(trimmed)
-            NavigationRequest(
-                query = data.optString("query", "").trim(),
-                openMode =
-                    data
-                        .optString("openMode", OPEN_MODE_QUESTION)
-                        .trim()
-                        .lowercase()
-                        .ifBlank { OPEN_MODE_QUESTION },
-            )
-        }.getOrElse {
-            NavigationRequest(trimmed, OPEN_MODE_QUESTION)
-        }
-    }
-
-    private data class NavigationMatch(
-        val cardId: Long,
-        val noteId: Long,
-        val preview: String,
-        val deckName: String,
-    )
-
-    private data class NavigationRequest(
-        val query: String,
-        val openMode: String,
-    )
-
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         return bindingMap.onKeyDown(event)
     }
 
     companion object {
-        private const val OPEN_MODE_ANSWER = "answer"
-        private const val OPEN_MODE_QUESTION = "question"
+        private const val OPEN_MODE_ANSWER = NAVIGATION_OPEN_MODE_ANSWER
 
         /** Index of the card to be first displayed among the IDs provided by [CARD_IDS_FILE_ARG] */
         const val CURRENT_INDEX_ARG = "currentIndex"

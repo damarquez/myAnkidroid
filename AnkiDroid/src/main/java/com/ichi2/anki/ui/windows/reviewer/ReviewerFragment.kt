@@ -52,7 +52,9 @@ import anki.scheduler.CardAnswer.Rating
 import com.ichi2.anki.CollectionManager
 import com.ichi2.anki.DispatchKeyEventListener
 import com.ichi2.anki.Flag
+import com.ichi2.anki.PreviewerDestination
 import com.ichi2.anki.R
+import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.cardviewer.Gesture
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.common.utils.android.isRobolectric
@@ -62,6 +64,10 @@ import com.ichi2.anki.dialogs.tags.TagsDialog
 import com.ichi2.anki.dialogs.tags.TagsDialogFactory
 import com.ichi2.anki.dialogs.tags.TagsDialogListener
 import com.ichi2.anki.model.CardStateFilter
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
+import com.ichi2.anki.navigation.NavigationMatch
+import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.pages.DeckOptionsDestination
 import com.ichi2.anki.preferences.reviewer.ViewerAction
 import com.ichi2.anki.previewer.CardViewerActivity
@@ -78,6 +84,7 @@ import com.ichi2.anki.settings.enums.ToolbarPosition
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.anki.toIntent
 import com.ichi2.anki.ui.windows.reviewer.audiorecord.CheckPronunciationFragment
 import com.ichi2.anki.ui.windows.reviewer.whiteboard.WhiteboardFragment
 import com.ichi2.anki.utils.CollectionPreferences
@@ -133,7 +140,7 @@ class ReviewerFragment :
     override fun onLoadInitialHtml(): String =
         stdHtml(
             context = requireContext(),
-            extraJsAssets = listOf("scripts/ankidroid-reviewer.js"),
+            extraJsAssets = listOf("scripts/ankidroid-reviewer.js", "scripts/ankidroid-selection-nav.js"),
             nightMode = Themes.isNightTheme,
         )
 
@@ -677,6 +684,15 @@ class ReviewerFragment :
                     }
                     true
                 }
+                "ankidroid-preview" -> {
+                    if (url.host == "navigate-card") {
+                        val payload =
+                            url.getQueryParameter("payload")
+                                ?: url.getQueryParameter("search").orEmpty()
+                        openLinkedPreview(payload)
+                    }
+                    true
+                }
                 "signal" -> {
                     if (hasShownUnsupportedFeatureWarning) return true
                     hasShownUnsupportedFeatureWarning = true
@@ -734,6 +750,56 @@ class ReviewerFragment :
                 }
             }
         }
+    }
+
+    private fun openLinkedPreview(payload: String) {
+        val request = parseNavigationRequest(payload)
+        if (request.query.isBlank()) {
+            showSnackbar(getString(R.string.search_card_js_api_no_results))
+            return
+        }
+        lifecycleScope.launch {
+            val matches =
+                runCatching { findNavigationMatches(request.query) }
+                    .getOrElse {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                        return@launch
+                    }
+            val showAnswer = request.openMode == NAVIGATION_OPEN_MODE_ANSWER
+            when {
+                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.size == 1 -> startPreviewerFor(matches.single().cardId, showAnswer)
+                else -> showLinkedPreviewPicker(matches, showAnswer)
+            }
+        }
+    }
+
+    private fun startPreviewerFor(
+        cardId: Long,
+        showAnswer: Boolean,
+    ) {
+        val idsFile = IdsFile(requireContext().cacheDir, listOf(cardId), prefix = "linked-preview")
+        val destination = PreviewerDestination(currentIndex = 0, idsFile = idsFile, showAnswer = showAnswer)
+        startActivity(destination.toIntent(requireContext()))
+    }
+
+    private fun showLinkedPreviewPicker(
+        matches: List<NavigationMatch>,
+        showAnswer: Boolean,
+    ) {
+        val items =
+            matches
+                .map { match ->
+                    val preview = match.preview.ifBlank { "(blank)" }
+                    "$preview • ${match.deckName}"
+                }.toTypedArray()
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle("Choose linked card")
+            .setItems(items) { _, which ->
+                startPreviewerFor(matches[which].cardId, showAnswer)
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     companion object {

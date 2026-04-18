@@ -89,6 +89,7 @@ import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.android.back.exitViaDoubleTapBackCallback
 import com.ichi2.anki.backend.stripHTMLAndSpecialFields
+import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.cardviewer.AndroidCardRenderContext
 import com.ichi2.anki.cardviewer.AndroidCardRenderContext.Companion.createInstance
 import com.ichi2.anki.cardviewer.CardMediaPlayer
@@ -128,6 +129,10 @@ import com.ichi2.anki.libanki.TTSTag
 import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.multimedia.getAvTag
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
+import com.ichi2.anki.navigation.NavigationMatch
+import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.observability.undoableOp
@@ -2494,6 +2499,11 @@ abstract class AbstractFlashcardViewer :
                 return true
             }
 
+            if (url.startsWith("ankidroid-preview://navigate-card")) {
+                handleAnkidroidPreviewNavigate(Uri.parse(url))
+                return true
+            }
+
             when (url.toSignal()) {
                 Signal.SIGNAL_UNHANDLED -> {}
                 Signal.SIGNAL_NOOP -> return true
@@ -2676,6 +2686,59 @@ abstract class AbstractFlashcardViewer :
     @VisibleForTesting(otherwise = VisibleForTesting.NONE)
     fun handleUrlFromJavascript(url: String) {
         webViewClient?.filterUrl(url) ?: throw IllegalStateException("Couldn't obtain WebView - maybe it wasn't created yet")
+    }
+
+    private fun handleAnkidroidPreviewNavigate(url: Uri) {
+        val payload =
+            url.getQueryParameter("payload")
+                ?: url.getQueryParameter("search").orEmpty()
+        val request = parseNavigationRequest(payload)
+        if (request.query.isBlank()) {
+            showSnackbar(getString(R.string.search_card_js_api_no_results))
+            return
+        }
+        launchCatchingTask {
+            val matches =
+                runCatching { findNavigationMatches(request.query) }
+                    .getOrElse {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                        return@launchCatchingTask
+                    }
+            val showAnswer = request.openMode == NAVIGATION_OPEN_MODE_ANSWER
+            when {
+                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.size == 1 -> openLinkedPreviewActivity(matches.single().cardId, showAnswer)
+                else -> showLinkedPreviewChooser(matches, showAnswer)
+            }
+        }
+    }
+
+    private fun openLinkedPreviewActivity(
+        cardId: Long,
+        showAnswer: Boolean,
+    ) {
+        val idsFile = IdsFile(this.cacheDir, listOf(cardId), prefix = "linked-preview")
+        val destination = PreviewerDestination(currentIndex = 0, idsFile = idsFile, showAnswer = showAnswer)
+        startActivity(destination.toIntent(this))
+    }
+
+    private fun showLinkedPreviewChooser(
+        matches: List<NavigationMatch>,
+        showAnswer: Boolean,
+    ) {
+        val items =
+            matches
+                .map { match ->
+                    val preview = match.preview.ifBlank { "(blank)" }
+                    "$preview • ${match.deckName}"
+                }.toTypedArray()
+        AlertDialog.Builder(this).show {
+            setTitle("Choose linked card")
+            setItems(items) { _, which ->
+                openLinkedPreviewActivity(matches[which].cardId, showAnswer)
+            }
+            setNegativeButton(android.R.string.cancel, null)
+        }
     }
 
     val isDisplayingAnswer
