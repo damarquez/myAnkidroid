@@ -141,6 +141,10 @@
     <string name="card_template_editor_insert_nav_control" maxLength="28">Insert nav control</string>
     <string name="card_template_editor_insert_audio_player_control" maxLength="28">Insert player control</string>
     <string name="card_template_editor_select_field">Select field</string>
+    <string name="note_editor_clean_audio_tags">Clean audio tags</string>
+    <string name="note_editor_clean_audio_tags_no_field">Tap inside a field first</string>
+    <string name="note_editor_clean_audio_tags_no_matches">No duplicated audio tags found in the current field</string>
+    <string name="note_editor_clean_audio_tags_applied">Duplicated audio tags cleaned in the current field</string>
     <string name="card_template_editor_cant_delete">At least one card type is required</string>
     <plurals name="card_template_editor_confirm_add">
         <item quantity="one">This will create %1$d card. Proceed?</item>

@@ -59,12 +59,28 @@
         return `${Number(value).toFixed(2).replace(/\.00$/, "")}x`;
     }
 
+    function lockButtonWidthToWidestLabel(button, labels) {
+        const original = button.textContent;
+        let maxWidth = 0;
+        labels.forEach(label => {
+            button.textContent = label;
+            const width = button.getBoundingClientRect().width;
+            if (width > maxWidth) maxWidth = width;
+        });
+        button.textContent = original;
+        if (maxWidth > 0) {
+            button.style.minWidth = `${Math.ceil(maxWidth)}px`;
+            button.style.textAlign = "center";
+        }
+    }
+
     function setPlayerState(player, state) {
         if (!player) return;
         player.dataset.state = state;
         const playButton = player.querySelector(".ankidroid-audio-play");
         if (playButton) {
-            playButton.textContent = state === "playing" ? "Stop" : "Play";
+            playButton.textContent = state === "playing" ? "\u25A0" : "\u25B6";
+            playButton.setAttribute("aria-label", state === "playing" ? "Stop" : "Play");
         }
     }
 
@@ -112,7 +128,8 @@
         const playButton = document.createElement("button");
         playButton.type = "button";
         playButton.className = "ankidroid-audio-play";
-        playButton.textContent = "Play";
+        playButton.textContent = "\u25B6";
+        playButton.setAttribute("aria-label", "Play");
 
         playButton.addEventListener("click", function (event) {
             event.preventDefault();
@@ -134,11 +151,15 @@
         });
         player.appendChild(playButton);
 
+        let speedButton = null;
+        let repeatButton = null;
+
         if (config.playbackSpeeds.length > 1) {
-            const speedButton = document.createElement("button");
+            speedButton = document.createElement("button");
             speedButton.type = "button";
             speedButton.className = "ankidroid-audio-speed";
-            speedButton.textContent = formatSpeed(config.defaultPlaybackSpeed);
+            speedButton.setAttribute("aria-label", "Playback speed");
+            speedButton.textContent = `\u26A1 ${formatSpeed(config.defaultPlaybackSpeed)}`;
             speedButton.addEventListener("click", function (event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -147,16 +168,17 @@
                 const nextIndex = (currentIndex + 1) % config.playbackSpeeds.length;
                 const nextValue = config.playbackSpeeds[nextIndex];
                 player.dataset.playbackRate = String(nextValue);
-                speedButton.textContent = formatSpeed(nextValue);
+                speedButton.textContent = `\u26A1 ${formatSpeed(nextValue)}`;
             });
             player.appendChild(speedButton);
         }
 
         if (config.repeatCounts.length > 1) {
-            const repeatButton = document.createElement("button");
+            repeatButton = document.createElement("button");
             repeatButton.type = "button";
             repeatButton.className = "ankidroid-audio-repeat";
-            repeatButton.textContent = `${config.defaultRepeatCount}x`;
+            repeatButton.setAttribute("aria-label", "Repeat count");
+            repeatButton.textContent = `\u21BB ${config.defaultRepeatCount}x`;
             repeatButton.addEventListener("click", function (event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -165,7 +187,7 @@
                 const nextIndex = (currentIndex + 1) % config.repeatCounts.length;
                 const nextValue = config.repeatCounts[nextIndex];
                 player.dataset.repeatCount = String(nextValue);
-                repeatButton.textContent = `${nextValue}x`;
+                repeatButton.textContent = `\u21BB ${nextValue}x`;
             });
             player.appendChild(repeatButton);
         }
@@ -173,6 +195,20 @@
         anchor.style.display = "none";
         anchor.dataset.ankidroidAudioEnhanced = "true";
         anchor.insertAdjacentElement("afterend", player);
+
+        lockButtonWidthToWidestLabel(playButton, ["\u25B6", "\u25A0"]);
+        if (speedButton) {
+            lockButtonWidthToWidestLabel(
+                speedButton,
+                config.playbackSpeeds.map(v => `\u26A1 ${formatSpeed(v)}`),
+            );
+        }
+        if (repeatButton) {
+            lockButtonWidthToWidestLabel(
+                repeatButton,
+                config.repeatCounts.map(v => `\u21BB ${v}x`),
+            );
+        }
     }
 
     function ensureStopAllButton(config, hasPlayers) {

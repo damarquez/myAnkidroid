@@ -2509,6 +2509,7 @@ class NoteEditorFragment :
                 type = AddClozeType.SAME_NUMBER,
             )
         }
+        addCleanAudioTagsButton()
         val buttons = toolbarButtons
         for (b in buttons) {
             // 0th button shows as '1' and is Ctrl + 1
@@ -2544,6 +2545,56 @@ class NoteEditorFragment :
         val addButton = toolbar.insertItem(0, drawable) { displayAddToolbarDialog() }
         addButton.contentDescription = resources.getString(R.string.add_toolbar_item)
         addButton.setTooltipTextCompat(resources.getString(R.string.add_toolbar_item))
+    }
+
+    private fun addCleanAudioTagsButton() {
+        val label = getString(R.string.note_editor_clean_audio_tags)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Au")) {
+                cleanAudioTagsInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun cleanAudioTagsInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_clean_audio_tags_no_field))
+            return
+        }
+
+        val originalText = currentField.text?.toString().orEmpty()
+        val cleanedText = collapseDuplicateAudioTags(originalText)
+        if (cleanedText == originalText) {
+            showSnackbar(getString(R.string.note_editor_clean_audio_tags_no_matches))
+            return
+        }
+
+        currentField.setText(cleanedText)
+        currentField.setSelection(cleanedText.length)
+        showSnackbar(getString(R.string.note_editor_clean_audio_tags_applied))
+    }
+
+    private fun collapseDuplicateAudioTags(text: String): String {
+        val plainPattern = Regex("""\{([^{}\r\n]+)\}\{\[sound:([^\]\r\n]+)\]\}""")
+        val starredPattern = Regex("""\{([^{}\r\n]+)\}\{\*\[sound:([^\]\r\n]+)\]\*\}""")
+
+        fun collapseMatchingPairs(
+            input: String,
+            pattern: Regex,
+        ): String =
+            pattern.replace(input) { match ->
+                val outerFilename = match.groupValues[1]
+                val soundFilename = match.groupValues[2]
+                if (outerFilename == soundFilename) {
+                    "[sound:$outerFilename]"
+                } else {
+                    match.value
+                }
+            }
+
+        return collapseMatchingPairs(collapseMatchingPairs(text, plainPattern), starredPattern)
     }
 
     private val toolbarButtons: ArrayList<CustomToolbarButton>
