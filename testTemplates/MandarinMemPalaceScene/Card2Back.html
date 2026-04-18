@@ -552,14 +552,28 @@
 {
   // matchMode: "exact" | "partial"
   // openMode: "question" | "answer"
-  "character": {
-    "deck": "MandarinMP::Characters",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": ""
-  },
+  // Each section can be a single generic action, or a list of actions.
+  // If originField is present, it is only used when the selection came from that field.
+  // If no originField-specific action matches, the generic action is used as fallback.
+  "character": [
+    {
+      "originField": "Pinyin",
+      "deck": "MandarinMP::CharactersByPinyin",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
+    {
+      "deck": "MandarinMP::Characters",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    }
+  ],
   // singleCharWord is used by the "Word" button when only one character is selected.
   "singleCharWord": {
     "deck": "MandarinMP::Vocabulary",
@@ -589,4 +603,3 @@
         if (firstPlayBtn) firstPlayBtn.click();
     }, autoPlayDelay);
 </script>
-

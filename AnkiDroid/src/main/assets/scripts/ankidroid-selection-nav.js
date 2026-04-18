@@ -61,6 +61,91 @@
             .replace(/^\s*\/\/.*$/gm, "");
     }
 
+    function titleCaseToken(value) {
+        const text = String(value || "").trim();
+        if (!text) return "";
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function normalizeOriginField(value) {
+        return String(value || "")
+            .trim()
+            .toLowerCase();
+    }
+
+    function parseOriginFieldFromId(id) {
+        const text = String(id || "").trim();
+        if (!text) return "";
+        const prefixes = ["source-", "target-", "field-", "fld-"];
+        for (const prefix of prefixes) {
+            if (text.toLowerCase().startsWith(prefix)) {
+                return text.slice(prefix.length).trim();
+            }
+        }
+        return "";
+    }
+
+    function parseOriginFieldFromClassList(classList) {
+        if (!classList || typeof classList.length !== "number") return "";
+        for (const cls of classList) {
+            const text = String(cls || "").trim();
+            if (!text) continue;
+            const lower = text.toLowerCase();
+            if (lower.endsWith("-field") && lower !== "field") {
+                return titleCaseToken(text.slice(0, -"-field".length));
+            }
+            if (lower.startsWith("field-") && lower.length > "field-".length) {
+                return titleCaseToken(text.slice("field-".length));
+            }
+        }
+        return "";
+    }
+
+    function parseOriginFieldFromLabel(container) {
+        if (!container || typeof container.querySelector !== "function") return "";
+        const label = container.querySelector(".field-label");
+        if (!label) return "";
+        return String(label.textContent || "")
+            .replace(/[:\s]+$/g, "")
+            .trim();
+    }
+
+    function resolveOriginFieldFromNode(node) {
+        let current = node;
+        while (current) {
+            if (current.nodeType === Node.ELEMENT_NODE) {
+                const explicit =
+                    current.getAttribute("data-ankidroid-origin-field") ||
+                    current.getAttribute("data-origin-field") ||
+                    current.getAttribute("data-field");
+                if (explicit && String(explicit).trim()) {
+                    return String(explicit).trim();
+                }
+
+                const fromId = parseOriginFieldFromId(current.id);
+                if (fromId) return fromId;
+
+                const fromClass = parseOriginFieldFromClassList(current.classList);
+                if (fromClass) return fromClass;
+
+                const fromLabel = parseOriginFieldFromLabel(current);
+                if (fromLabel) return fromLabel;
+            }
+            current = current.parentNode;
+        }
+        return "";
+    }
+
+    function getSelectionOriginField() {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return "";
+        const range = sel.getRangeAt(0);
+        return (
+            resolveOriginFieldFromNode(range.startContainer) ||
+            resolveOriginFieldFromNode(range.endContainer)
+        );
+    }
+
     function deckExists(entry) {
         const known = window.__ankidroidKnownDecks;
         // If we haven't received the list yet, don't filter — avoids hiding buttons
@@ -77,14 +162,18 @@
         try {
             const parsed = JSON.parse(stripJsonComments(configEl.textContent || "{}"));
             const sections = ["character", "singleCharWord", "word"];
-            const result = { character: null, singleCharWord: null, word: null, missingDecks: [] };
+            const result = { character: [], singleCharWord: [], word: [], missingDecks: [] };
             for (const key of sections) {
-                const entry = parsed[key];
-                if (!entry) continue;
-                if (deckExists(entry)) {
-                    result[key] = entry;
-                } else {
-                    result.missingDecks.push(entry.deck);
+                const rawEntries = parsed[key];
+                if (!rawEntries) continue;
+                const entries = Array.isArray(rawEntries) ? rawEntries : [rawEntries];
+                for (const entry of entries) {
+                    if (!entry) continue;
+                    if (deckExists(entry)) {
+                        result[key].push(entry);
+                    } else {
+                        result.missingDecks.push(entry.deck);
+                    }
                 }
             }
             return result;
@@ -93,10 +182,28 @@
         }
     }
 
-    function buildNavigationPayload(query, config, selectedText) {
+    function chooseSearchConfig(entries, originField) {
+        if (!Array.isArray(entries) || entries.length === 0) return null;
+        const normalizedOrigin = normalizeOriginField(originField);
+        let genericEntry = null;
+        for (const entry of entries) {
+            const entryOrigin = normalizeOriginField(entry && entry.originField);
+            if (!entryOrigin) {
+                genericEntry = genericEntry || entry;
+                continue;
+            }
+            if (normalizedOrigin && entryOrigin === normalizedOrigin) {
+                return entry;
+            }
+        }
+        return genericEntry;
+    }
+
+    function buildNavigationPayload(query, config, selectedText, originField) {
         return JSON.stringify({
             query,
             selectedText,
+            originField,
             openMode: String((config && config.openMode) || "question").toLowerCase(),
             search: {
                 deck: String((config && config.deck) || ""),
@@ -136,7 +243,8 @@
         const config = getSearchConfig();
         if (!config) return;
 
-        const hasAnySection = config.character || config.singleCharWord || config.word;
+        const hasAnySection =
+            config.character.length || config.singleCharWord.length || config.word.length;
         if (!hasAnySection && config.missingDecks && config.missingDecks.length) {
             const unique = Array.from(new Set(config.missingDecks));
             showDebugBadge("nav: unknown deck " + unique.join(", "), "#c62828");
@@ -144,6 +252,10 @@
         }
 
         const isSingleChar = clean.length === 1;
+        const originField = getSelectionOriginField();
+        const characterConfig = chooseSearchConfig(config.character, originField);
+        const singleCharWordConfig = chooseSearchConfig(config.singleCharWord, originField);
+        const wordConfig = chooseSearchConfig(config.word, originField);
 
         const btnWidth = 84;
         const btnHeight = 36;
@@ -185,7 +297,7 @@
             btn.addEventListener("click", function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                const payload = buildNavigationPayload(query, searchConfig, clean);
+                const payload = buildNavigationPayload(query, searchConfig, clean, originField);
                 openPreviewSearch(payload);
                 removeSelectionSearchUI();
             });
@@ -195,21 +307,17 @@
         }
 
         if (isSingleChar) {
-            if (config.character) {
-                makeBtn("Char", buildFieldQuery(clean, config.character), config.character);
+            if (characterConfig) {
+                makeBtn("Char", buildFieldQuery(clean, characterConfig), characterConfig);
             }
-            if (config.singleCharWord) {
-                makeBtn(
-                    "Word",
-                    buildFieldQuery(clean, config.singleCharWord),
-                    config.singleCharWord,
-                );
+            if (singleCharWordConfig) {
+                makeBtn("Word", buildFieldQuery(clean, singleCharWordConfig), singleCharWordConfig);
             }
-            if (!buttons.length && config.word) {
-                makeBtn("Search", buildFieldQuery(clean, config.word), config.word);
+            if (!buttons.length && wordConfig) {
+                makeBtn("Search", buildFieldQuery(clean, wordConfig), wordConfig);
             }
-        } else if (config.word) {
-            makeBtn("Search", buildFieldQuery(clean, config.word), config.word);
+        } else if (wordConfig) {
+            makeBtn("Search", buildFieldQuery(clean, wordConfig), wordConfig);
         }
 
         if (!buttons.length) return;
@@ -273,7 +381,8 @@
             if (hasConfigEl && hasDecks) {
                 const config = getSearchConfig();
                 const anySection =
-                    config && (config.character || config.singleCharWord || config.word);
+                    config &&
+                    (config.character.length || config.singleCharWord.length || config.word.length);
                 if (anySection) {
                     showDebugBadge("nav: config OK", "#2e7d32");
                 } else if (config && config.missingDecks && config.missingDecks.length) {
