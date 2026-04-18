@@ -26,6 +26,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.webkit.WebView
+import androidx.activity.addCallback
 import androidx.appcompat.widget.Toolbar
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -34,11 +35,10 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import com.ichi2.anki.CollectionManager.withCol
 import com.google.android.material.slider.Slider
+import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.DispatchKeyEventListener
 import com.ichi2.anki.Flag
-import com.ichi2.anki.PreviewerDestination
 import com.ichi2.anki.R
 import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.browser.search.SearchString
@@ -197,12 +197,27 @@ class PreviewerFragment :
 
         binding.toolbar.apply {
             setOnMenuItemClickListener(this@PreviewerFragment)
-            setNavigationOnClickListener { requireActivity().onBackPressedDispatcher.onBackPressed() }
+            setNavigationOnClickListener {
+                if (viewModel.canPopLinkedNavigation()) {
+                    viewModel.popLinkedCard()
+                } else {
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                }
+            }
         }
 
         binding.webviewContainer.setFrameStyle()
 
         bindingMap = BindingMap(sharedPrefs(), PreviewerAction.entries, this)
+
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
+            if (viewModel.canPopLinkedNavigation()) {
+                viewModel.popLinkedCard()
+            } else {
+                isEnabled = false
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+        }
     }
 
     override fun onCreateWebViewClient(savedInstanceState: Bundle?): CardViewerWebViewClient =
@@ -319,7 +334,7 @@ class PreviewerFragment :
                 matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
                 matches.size == 1 -> {
                     showSnackbar("Opening linked preview")
-                    openPreviewForCard(matches.single().cardId)
+                    viewModel.openLinkedCard(matches.single().cardId)
                 }
                 else -> showNavigationMatchPicker(matches)
             }
@@ -329,7 +344,8 @@ class PreviewerFragment :
     private suspend fun findNavigationMatches(query: String): List<NavigationMatch> {
         val searchString = withCol { SearchString.fromUserInput(query) }.getOrThrow()
         val cards =
-            com.ichi2.anki.searchForRows(searchString, SortOrder.UseCollectionOrdering, CardsOrNotes.CARDS)
+            com.ichi2.anki
+                .searchForRows(searchString, SortOrder.UseCollectionOrdering, CardsOrNotes.CARDS)
                 .map { withCol { getCard(it.cardOrNoteId) } }
 
         return cards
@@ -339,7 +355,11 @@ class PreviewerFragment :
                 val primaryCard = matchesForNote.minWith(compareBy<Card> { it.ord }.thenBy { it.id })
                 val preview =
                     withCol {
-                        primaryCard.note(this).fields.firstOrNull().orEmpty()
+                        primaryCard
+                            .note(this)
+                            .fields
+                            .firstOrNull()
+                            .orEmpty()
                     }
                 val deckName =
                     withCol {
@@ -351,29 +371,23 @@ class PreviewerFragment :
                     preview = preview,
                     deckName = deckName,
                 )
-            }
-            .distinctBy { it.noteId }
-    }
-
-    private fun openPreviewForCard(cardId: Long) {
-        val idsFile = IdsFile(requireContext().cacheDir, listOf(cardId), prefix = "linked-preview")
-        val intent = PreviewerDestination(currentIndex = 0, idsFile = idsFile).toIntent(requireContext())
-        startActivity(intent)
+            }.distinctBy { it.noteId }
     }
 
     private fun showNavigationMatchPicker(matches: List<NavigationMatch>) {
         val items =
-            matches.map { match ->
-                val preview = match.preview.ifBlank { "(blank)" }
-                "$preview • ${match.deckName}"
-            }.toTypedArray()
+            matches
+                .map { match ->
+                    val preview = match.preview.ifBlank { "(blank)" }
+                    "$preview • ${match.deckName}"
+                }.toTypedArray()
 
-        AlertDialog.Builder(requireContext())
+        AlertDialog
+            .Builder(requireContext())
             .setTitle("Choose linked card")
             .setItems(items) { _, which ->
-                openPreviewForCard(matches[which].cardId)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
+                viewModel.openLinkedCard(matches[which].cardId)
+            }.setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 

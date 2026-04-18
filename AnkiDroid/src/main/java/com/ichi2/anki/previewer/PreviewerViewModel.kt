@@ -54,9 +54,12 @@ class PreviewerViewModel(
     val backSideOnly = savedStateHandle.getMutableStateFlow(KEY_BACKSIDE_ONLY, false)
     val isMarked = MutableStateFlow(false)
     val flag: MutableStateFlow<Flag> = MutableStateFlow(Flag.NONE)
+    val hasLinkedNavigation = MutableStateFlow(false)
 
     @VisibleForTesting
     val selectedCardIds: List<Long> = savedStateHandle.require<IdsFile>(PreviewerFragment.CARD_IDS_FILE_ARG).getIds()
+    private val linkedNavigationStack = ArrayDeque<PreviewNavigationSnapshot>()
+    private var linkedCardId: Long? = null
 
     val isBackButtonEnabled =
         combine(currentIndex, showingAnswer, backSideOnly) { index, showingAnswer, isBackSideOnly ->
@@ -182,7 +185,41 @@ class PreviewerViewModel(
         }
     }
 
-    fun cardsCount() = selectedCardIds.count()
+    fun cardsCount() = if (linkedCardId != null) 1 else selectedCardIds.count()
+
+    fun canPopLinkedNavigation() = linkedNavigationStack.isNotEmpty()
+
+    fun openLinkedCard(cardId: Long) {
+        launchCatchingIO {
+            linkedNavigationStack.addLast(
+                PreviewNavigationSnapshot(
+                    linkedCardId = linkedCardId,
+                    currentIndex = currentIndex.value,
+                    showingAnswer = showingAnswer.value,
+                    backSideOnly = backSideOnly.value,
+                ),
+            )
+            hasLinkedNavigation.emit(true)
+            linkedCardId = cardId
+            currentIndex.emit(0)
+            backSideOnly.emit(false)
+            showCard(showAnswer = false)
+            loadAndPlaySounds()
+        }
+    }
+
+    fun popLinkedCard() {
+        val snapshot = linkedNavigationStack.removeLastOrNull() ?: return
+        launchCatchingIO {
+            linkedCardId = snapshot.linkedCardId
+            currentIndex.emit(snapshot.currentIndex)
+            backSideOnly.emit(snapshot.backSideOnly)
+            showingAnswer.emit(snapshot.showingAnswer)
+            hasLinkedNavigation.emit(linkedNavigationStack.isNotEmpty())
+            showCard(showAnswer = snapshot.showingAnswer || snapshot.backSideOnly)
+            loadAndPlaySounds()
+        }
+    }
 
     /**
      * @param sliderPosition the value of the slider (i.e. Slider::value). It's NOT the card index.
@@ -207,14 +244,17 @@ class PreviewerViewModel(
     }
 
     private suspend fun showCard(showAnswer: Boolean) {
+        val cardId = resolveCurrentCardId()
         currentCard =
             asyncIO {
-                withCol { getCard(selectedCardIds[currentIndex.value]) }
+                withCol { getCard(cardId) }
             }
         if (showAnswer) showAnswer() else showQuestion()
         updateFlagIcon()
         updateMarkIcon()
     }
+
+    private fun resolveCurrentCardId(): Long = linkedCardId ?: selectedCardIds[currentIndex.value]
 
     private suspend fun updateFlagIcon() {
         flag.emit(currentCard.await().flag)
@@ -276,3 +316,10 @@ class PreviewerViewModel(
         private const val KEY_CURRENT_INDEX = "currentIndex"
     }
 }
+
+private data class PreviewNavigationSnapshot(
+    val linkedCardId: Long?,
+    val currentIndex: Int,
+    val showingAnswer: Boolean,
+    val backSideOnly: Boolean,
+)
