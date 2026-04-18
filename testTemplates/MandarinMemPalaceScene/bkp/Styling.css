@@ -1,0 +1,438 @@
+
+
+
+:root {
+  /* Card Colors */
+  --card-text-color: black;
+  --card-background-color: white;
+  --link-color: #00008B; /* Darkened blue for e-ink readability */
+  --link-visited-color: #4A0072; /* Darkened purple for e-ink readability */
+
+  /* Custom Audio Player Colors */
+  --audio-player-bg: #282a36; /* Dark background - this will remain dark */
+  --audio-button-fill: #f8f8f2; /* Light icon color - this will remain light */
+  --audio-playing-fill: #bd93f9; /* Purple play/pause icon - this will remain purple */
+  --progress-bar-bg: #44475a; /* Darker progress bar background - this will remain dark */
+  --progress-fill-color: #50fa7b; /* Green progress fill - this will remain green */
+  --speed-btn-color: #f8f8f2; /* Light text color - this will remain light */
+  --speed-menu-bg: #282a36; /* Dark menu background - this will remain dark */
+  --speed-menu-border: #6272a4; /* Border color - this will remain dark */
+  --speed-menu-link-color: #f8f8f2; /* Light link color - this will remain light */
+  --speed-menu-hover-bg: #44475a; /* Hover background - this will remain dark */
+
+  /* Stop Button Colors */
+  --stop-button-bg: #d9534f; /* Reddish color - this will remain red */
+  --stop-icon-color: white; /* White icon color - this will remain white */
+
+  /* Field Label Colors */
+  --field-label-color: black; /* Default for light mode */
+  --field-label-underline: underline; /* Default for light mode */
+  --field-container-text-align: left; /* Default for light mode */
+
+}
+
+
+.card {
+  font-family: arial;
+  font-size: 20px;
+  text-align: center;
+  color: var(--card-text-color);
+  background-color: var(--card-background-color);
+}
+
+a {
+  color: var(--link-color);
+}
+
+a:visited {
+  color: var(--link-visited-color);
+}
+
+
+/* New Field Label Styles */
+.field-container {
+    font-family: arial; /* Applied to the whole container */
+    font-size: 20px; /* Applied to the whole container */
+    text-align: var(--field-container-text-align); /* Aligns the entire field content */
+    /* Add any common padding, margin, etc. for field containers here if needed */
+}
+
+.field-label {
+    color: var(--field-label-color);
+    /*text-decoration: var(--field-label-underline);*/
+    font-weight: bold;
+    /* Add any other specific label styles here */
+}
+
+.inline-img {
+  /* This controls the height. '1.2em' makes it slightly taller than the text. */
+  height: 1.2em;
+  /* This keeps the aspect ratio correct. */
+  width: auto;
+  /* This is the key for alignment! 'middle' often looks best. */
+  /* Other options: 'bottom', 'top', 'text-bottom' */
+  vertical-align: middle;
+  /* Optional: add a tiny bit of space around the image. */
+  margin: 0 0.1em;
+}
+
+@font-face {
+  font-family: "CJK";
+  src: url("NotoSerifCJKsc-VF.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "CJK-ExtB";
+  src: url("_HanaMinB.ttf") format("truetype");
+  font-display: swap;
+}
+
+
+/* Apply CJK font to all field content blocks that render Chinese */
+#target-Pinyin,
+#target-Scene,
+#target-Reason,
+#target-Examples {
+  font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", system-ui, sans-serif;
+  unicode-bidi: plaintext; /* keeps embedded audio placeholders benign */
+}
+
+/* Increase font size specifically for the Examples field */
+#target-Examples {
+  font-size: 28px; /* You can increase or decrease this number to fit your preference */
+  line-height: 1.5; /* Adds a bit of breathing room between multiple lines */
+}
+
+
+.chinese {
+  font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", sans-serif;
+  font-size: 1rem;
+}
+
+.chinese-medium{
+  font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", sans-serif;
+  font-size: 1.5rem;
+}
+
+.chinese-big{
+  font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", sans-serif;
+  font-size: 2rem;
+}
+
+/* This selector means "find #typeans ONLY if it is inside a card with the class .card2" */
+.card2 #typeans {
+  font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", sans-serif;
+  font-size: 1.5rem; /* Or whatever size you prefer */
+}
+
+
+.answer-cue {
+  font-size: 16px;
+}
+
+/* Custom Audio Player (currently designed for dark aesthetics, so vars are set to dark values) */
+.custom-audio-player {
+  background-color: var(--audio-player-bg);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  width: 80%;
+  height: 35px;
+  margin: 4px auto;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.custom-audio-player button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  margin-right: 5px;
+  fill: var(--audio-button-fill);
+}
+
+.play-pause-btn .play-icon,
+.play-pause-btn.playing .pause-icon {
+  display: block;
+}
+
+.play-pause-btn .pause-icon,
+.play-pause-btn.playing .play-icon {
+  display: none;
+}
+
+.play-pause-btn.playing .pause-icon {
+  fill: var(--audio-playing-fill);
+}
+
+.progress-bar-container {
+  flex-grow: 1;
+  background-color: var(--progress-bar-bg);
+  height: 5px;
+  cursor: pointer;
+  border-radius: 2.5px;
+  margin: 0 10px;
+}
+
+.progress-fill {
+  background-color: var(--progress-fill-color);
+  height: 100%;
+  width: 0%;
+  border-radius: 2.5px;
+}
+
+.speed-control {
+  position: relative;
+}
+
+.speed-btn {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  color: var(--speed-btn-color);
+  padding: 5px;
+  min-width: 40px;
+  text-align: center;
+}
+
+.speed-menu {
+  display: none;
+  position: absolute;
+  bottom: -50%;
+  right: 10%;
+  transform: translateX(10%);
+  background-color: var(--speed-menu-bg);
+  border: 1px solid var(--speed-menu-border);
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  flex-direction: row;
+  padding: 2px;
+}
+
+.speed-menu a {
+  padding: 6px 8px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  color: var(--speed-menu-link-color);
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+.speed-menu a:hover {
+  background-color: var(--speed-menu-hover-bg);
+}
+
+/* Custom Stop Icon Button */
+.stop-button-container {
+  display: none; /* Start the stop button hidden */
+  text-align: center;
+}
+
+.stop-button-container .soundLink {
+  /* No changes needed here, but included for context */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background-color: var(--stop-button-bg);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  position: relative; /* This is crucial */
+}
+
+.stop-button-container .soundLink::after {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--stop-icon-color);
+  border-radius: 3px;
+
+  /* Add these properties for perfect centering */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+
+
+.stop-button-container .playImage {
+  display: none; /* Hide the default triangle play icon */
+}
+
+
+
+.repeat-control {
+    position: relative;
+}
+.repeat-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: var(--speed-btn-color);
+    min-width: 40px;
+    text-align: center;
+}
+.repeat-menu {
+    display: none;
+    position: absolute;
+    bottom: -50%;
+    right: 10%;
+    transform: translateX(10%);
+    background-color: var(--speed-menu-bg);
+    border: 1px solid var(--speed-menu-border);
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+    flex-direction: row;
+    padding: 2px;
+}
+.repeat-menu a {
+    padding: 6px 8px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    color: var(--speed-menu-link-color);
+    cursor: pointer;
+    text-decoration: none;
+    border-radius: 3px;
+}
+.repeat-menu a:hover {
+    background-color: var(--speed-menu-hover-bg);
+}
+
+
+.char-length-message {
+  font-size: 16px;
+  font-style: italic;
+  color: #444;
+  margin-bottom: 5px; /* Optional: adds a little space below the message */
+}
+
+.type-answer-message {
+  font-size: 16px;
+  font-style: italic;
+  color: #444;
+  margin-bottom: 5px; /* Optional: adds a little space below the message */
+}
+
+/* This will make the text a lighter gray in Night Mode for better readability */
+.nightMode .char-length-message {
+  color: lightgray;
+}
+
+
+
+
+
+
+
+
+
+
+.hidden-line-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 2px 0;
+}
+
+.hidden-line-toggle {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #ccc;
+    color: #333;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.hidden-line-content {
+    flex: 1 1 auto;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.hidden-line-content.is-hidden {
+    background: #bfbfbf;
+    color: #bfbfbf !important;
+}
+
+.hidden-line-content.is-hidden * {
+    color: #bfbfbf !important;
+    -webkit-text-fill-color: #bfbfbf !important;
+}
+
+.hidden-line-content.is-hidden a,
+.hidden-line-content.is-hidden a:link,
+.hidden-line-content.is-hidden a:visited,
+.hidden-line-content.is-hidden a:hover,
+.hidden-line-content.is-hidden a:active {
+    color: #bfbfbf !important;
+    -webkit-text-fill-color: #bfbfbf !important;
+}
+
+.hidden-line-content.is-hidden .custom-audio-player,
+.hidden-line-content.is-hidden audio {
+    visibility: hidden;
+}
+
+.hidden-line-alt {
+    display: none;
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-style: italic;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.hidden-line-content.is-hidden.has-alt .hidden-line-alt {
+    display: inline;
+    color: #444 !important;
+    -webkit-text-fill-color: #444 !important;
+}
+
+.hidden-line-content.is-revealed {
+    background: transparent;
+    color: inherit !important;
+}
+
+.hidden-line-content.is-revealed * {
+    color: inherit !important;
+    -webkit-text-fill-color: currentColor !important;
+}
+
+
+
+.nightMode {
+  /* Card Colors for Dark Mode */
+  --card-text-color: #f8f8f2; /* Light text */
+  --card-background-color: #282a36; /* Dark background */
+  --link-color: #B3E5FC; /* Lighter links for dark mode */
+  --link-visited-color: #E3F2FD; /* Slightly different light blue, or use the same #90CAF9 */
+
+/* Field Label Colors for Dark Mode */
+  --field-label-color: darkkhaki;
+  --field-label-underline: underline; /* Keep underline for dark mode */
+  --field-container-text-align: left; /* Keep text alignment same in dark mode */
+
+}
+
+

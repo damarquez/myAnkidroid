@@ -1,0 +1,937 @@
+<!--
+   Header: FrontSide and stop all audio button
+-->
+<table style="width:100%; border-collapse:collapse;">
+    <tr>
+        <td style="text-align:center; border:none; vertical-align:top; width:90%;">
+            {{FrontSide}}
+        </td>
+        <td style="text-align:center; border:none; vertical-align:top; width:10%;">
+            <div class="stop-button-container">
+                [sound:_silent_for_stop.mp3]
+            </div>
+        </td>
+    </tr>
+</table>
+<br><br>
+
+<!--
+    Pleco and HSK links to entry
+ -->
+<div id="compact-links" style="font-family: Arial; font-size: 16px;">
+    <a id="pleco-link" href="plecoapi://x-callback-url/s?q={{url:Front}}">Pleco</a>
+    | <a id="hsk-link" href="https://hskhsk.pythonanywhere.com/cidian?q={{url:Front}}">HSK</a>
+    | <a href="https://hanpingchinese.com/cmn/word?t={{url:Front}}">Hanping</a>
+</div>
+<span id="ac-front-content" style="display:none;">{{Front}}</span>
+
+
+<!--
+   Link to ArchChinese when single character
+-->
+<script>
+    try {
+      var frontContentSpan = document.getElementById('ac-front-content');
+      var frontText = frontContentSpan.textContent || frontContentSpan.innerText;
+      var trimmedContent = frontText.trim();
+
+      var plecoLink = document.getElementById('pleco-link');
+      var hskLink = document.getElementById('hsk-link');
+      var wordForPlecoHsk = trimmedContent;
+
+      if (trimmedContent.length === 2 && trimmedContent.endsWith('.')) {
+        wordForPlecoHsk = trimmedContent.slice(0, 1);
+      }
+
+      if (plecoLink) {
+        plecoLink.href = "plecoapi://x-callback-url/s?q=" + encodeURIComponent(wordForPlecoHsk);
+      }
+      if (hskLink) {
+        hskLink.href = "https://hskhsk.pythonanywhere.com/cidian?q=" + encodeURIComponent(wordForPlecoHsk);
+      }
+
+      var charForUrl = trimmedContent;
+      if (charForUrl.endsWith('.')) {
+        charForUrl = charForUrl.slice(0, -1);
+      }
+
+      var linksContainer = document.getElementById('compact-links');
+      if (linksContainer && charForUrl.length === 1) {
+        var archChineseUrl = "https://www.archchinese.com/chinese_english_dictionary.html?find=" + encodeURIComponent(charForUrl);
+        var hanziDbUrl = "http://hanzidb.org/character/" + encodeURIComponent(charForUrl);
+        linksContainer.innerHTML += ' | <a href="' + archChineseUrl + '">ArchChinese</a>';
+        linksContainer.innerHTML += ' | <a href="' + hanziDbUrl + '">hanziDB</a>';
+      }
+    } catch (e) {}
+</script>
+
+<hr>
+
+
+
+
+<!--
+   Main script
+-->
+<script>
+    /* ---------------
+         CONFIG
+      *--------------- */
+    const playbackSpeeds = [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5];   // playback-rate menu
+    const repeatOptions  = [1, 2, 3, 5,10];                             // repeat-count menu
+    const repeatSymbol   = '\u21BB';  //   � used for both innerHTML & textContent
+    const repeatDelay    = 150;       // ms between repeated plays
+    const cardInitDelay  = 150;       // ms before initializeCard() runs
+    const autoPlayDelay  = 300;       // ms before auto-playing the first player
+    const defaultRepeat  = 3;         // initial repeat count
+    let repeatTarget = defaultRepeat;
+    let repeatCount  = 0;
+    let   playerCounter   = 0;             // unique ids
+    window.currentlyPlaying = null;   // track active player
+
+    /* ---------------
+         FIELD ? CUSTOM PLAYER
+      *--------------- */
+    window.renderFieldWithPlayers = function (sourceId, targetId) {
+        try {
+            const source = document.getElementById(sourceId);
+            const target = document.getElementById(targetId);
+            if (!source || !target) return;
+
+            const raw = source.innerHTML;
+            let html = '';
+
+            if (!raw.includes('{')) {
+                html = raw;
+            } else {
+                const stripped = raw.replace(/{[^\S\r\n]*\*[^*]*\*[^\S\r\n]*}/g, '');
+                const parts = stripped.split(/({[^}]+})/g).filter(Boolean);
+
+                parts.forEach(part => {
+                    if (part.startsWith('{') && part.endsWith('}')) {
+                        const fn = part.slice(1, -1).trim();
+                        if (fn) {
+                            playerCounter++;
+                            const id = `player_${playerCounter}`;
+                            html += `
+                                <div class="custom-audio-player-container" id="${id}">
+                                    <audio class="audio-element" src="${fn}" preload="metadata"></audio>
+                                    <div class="custom-audio-player">
+                                        <button class="play-pause-btn">
+                                            <svg class="play-icon" viewBox="0 0 24 24" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>
+                                            <svg class="pause-icon" viewBox="0 0 24 24" width="24" height="24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                        </button>
+                                        <div class="progress-bar-container"><div class="progress-fill"></div></div>
+                                        <div class="speed-control"><button class="speed-btn">1.0x</button><div class="speed-menu"></div></div>
+                                        <div class="speed-control repeat-control"><button class="repeat-btn">${repeatTarget}${repeatSymbol}</button><div class="repeat-menu" style="display:none"></div></div>
+                                    </div>
+                                </div>`;
+                        }
+                    } else {
+                        html += part;
+                    }
+                });
+            }
+
+            target.innerHTML = html;
+
+            target.querySelectorAll('.custom-audio-player-container').forEach(p => {
+                if (!p.classList.contains('initialized')) {
+                    initializeCustomPlayer(p.id);
+                    p.classList.add('initialized');
+                }
+            });
+
+            applyHiddenLineToggles(target);
+        } catch (err) {
+            console.error('renderFieldWithPlayers:', err);
+        }
+    };
+
+    /* ---------------
+         PLAYER LOGIC
+      *--------------- */
+
+
+    /* ---------------
+         HIDDEN LINE LOGIC
+      *--------------- */
+    window.getLastTextNodeDeep = function (node) {
+        if (!node) return null;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node;
+        }
+
+        for (let i = node.childNodes.length - 1; i >= 0; i--) {
+            const found = window.getLastTextNodeDeep(node.childNodes[i]);
+            if (found) return found;
+        }
+
+        return null;
+    };
+
+    window.getHiddenMarkerInfo = function (lineEl) {
+        if (!lineEl) return null;
+
+        const text = (lineEl.textContent || '').replace(/\u00A0/g, ' ').trim();
+
+        if (/\(\*\)\s*$/.test(text)) {
+            return { marker: '(*)', alt: '' };
+        }
+        if (/\(\*1\)\s*$/.test(text)) {
+            return { marker: '(*1)', alt: 'Mandarin' };
+        }
+        if (/\(\*2\)\s*$/.test(text)) {
+            return { marker: '(*2)', alt: 'Pinyin' };
+        }
+        if (/\(\*3\)\s*$/.test(text)) {
+            return { marker: '(*3)', alt: 'Translation' };
+        }
+
+        return null;
+    };
+
+    window.removeHiddenMarkerFromLine = function (lineEl, marker) {
+        if (!lineEl || !marker) return;
+
+        const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const lastTextNode = window.getLastTextNodeDeep(lineEl);
+        if (!lastTextNode) return;
+
+        lastTextNode.textContent = lastTextNode.textContent.replace(
+            new RegExp('\\s*' + escapedMarker + '\\s*$'),
+            ''
+        );
+    };
+
+    window.makeLineToggleable = function (lineEl, altText) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'hidden-line-wrapper';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'hidden-line-toggle';
+        btn.textContent = '+';
+
+        const content = document.createElement('div');
+        content.className = 'hidden-line-content is-hidden';
+
+        if (altText) {
+            content.classList.add('has-alt');
+        }
+
+        while (lineEl.firstChild) {
+            content.appendChild(lineEl.firstChild);
+        }
+
+        if (altText) {
+            const altSpan = document.createElement('span');
+            altSpan.className = 'hidden-line-alt';
+            altSpan.textContent = altText;
+            content.appendChild(altSpan);
+        }
+
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const hidden = content.classList.contains('is-hidden');
+            if (hidden) {
+                content.classList.remove('is-hidden');
+                content.classList.add('is-revealed');
+                btn.textContent = '';
+            } else {
+                content.classList.remove('is-revealed');
+                content.classList.add('is-hidden');
+                btn.textContent = '+';
+            }
+        });
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(content);
+        return wrapper;
+    };
+
+    window.applyHiddenLineToggles = function (target) {
+        if (!target || target.dataset.hiddenLinesProcessed === '1') return;
+
+        const originalNodes = Array.from(target.childNodes);
+        const rebuilt = document.createDocumentFragment();
+        let currentLine = document.createElement('div');
+
+        function flushCurrentLine() {
+            const hasContent = currentLine.childNodes.length > 0;
+            if (!hasContent) return;
+
+            const info = window.getHiddenMarkerInfo(currentLine);
+
+            if (info) {
+                window.removeHiddenMarkerFromLine(currentLine, info.marker);
+                rebuilt.appendChild(window.makeLineToggleable(currentLine, info.alt));
+            } else {
+                while (currentLine.firstChild) {
+                    rebuilt.appendChild(currentLine.firstChild);
+                }
+            }
+
+            currentLine = document.createElement('div');
+        }
+
+        originalNodes.forEach(node => {
+            if (node.nodeName === 'BR') {
+                flushCurrentLine();
+                rebuilt.appendChild(document.createElement('br'));
+            } else {
+                currentLine.appendChild(node);
+            }
+        });
+
+        flushCurrentLine();
+
+        target.innerHTML = '';
+        target.appendChild(rebuilt);
+        target.dataset.hiddenLinesProcessed = '1';
+    };
+
+
+    window.initializeCustomPlayer = function (playerId) {
+        const wrapper        = document.getElementById(playerId);
+        if (!wrapper) return;
+
+        const audio          = wrapper.querySelector('.audio-element');
+        const playPauseBtn   = wrapper.querySelector('.play-pause-btn');
+        const progressBar    = wrapper.querySelector('.progress-bar-container');
+        const progressFill   = wrapper.querySelector('.progress-fill');
+        const speedBtn       = wrapper.querySelector('.speed-btn');
+        const speedMenu      = wrapper.querySelector('.speed-menu');
+        const repeatBtn      = wrapper.querySelector('.repeat-btn');
+        const repeatMenu     = wrapper.querySelector('.repeat-menu');
+
+        /* build speed menu */
+        speedMenu.innerHTML = '';
+        playbackSpeeds.forEach(sp => {
+            const a      = document.createElement('a');
+            a.href       = '#';
+            a.textContent= `${sp.toFixed(1)}x`;
+            a.dataset.speed = sp;
+            speedMenu.appendChild(a);
+        });
+
+        /* build repeat menu */
+        repeatMenu.innerHTML = '';
+        repeatOptions.forEach(rv => {
+            const a      = document.createElement('a');
+            a.href       = '#';
+            a.textContent= `${rv}${repeatSymbol}`;
+            a.dataset.repeat = String(rv);
+            repeatMenu.appendChild(a);
+        });
+
+        /* play / pause */
+        playPauseBtn.addEventListener('click', () => (audio.paused ? audio.play() : audio.pause()));
+
+        audio.addEventListener('play', () => {
+            if (typeof pycmd === 'function') pycmd('stopAudio');
+            document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
+            if (window.currentlyPlaying && window.currentlyPlaying !== audio) {
+                window.currentlyPlaying.pause();
+            }
+            window.currentlyPlaying = audio;
+            playPauseBtn.classList.add('playing');
+        });
+
+        audio.addEventListener('pause', () => {
+            if (window.currentlyPlaying === audio) window.currentlyPlaying = null;
+            playPauseBtn.classList.remove('playing');
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            if (audio.duration) {
+                const pct = (audio.currentTime / audio.duration) * 100;
+                progressFill.style.width = `${pct}%`;
+            }
+        });
+
+        audio.addEventListener('ended', () => {
+            progressFill.style.width = '0%';
+            playPauseBtn.classList.remove('playing');
+            audio.currentTime = 0;
+        });
+
+        /* repeat: second ended listener  only acts when repeatTarget > 1 */
+        audio.addEventListener('ended', () => {
+            if (repeatTarget <= 1) return;
+            repeatCount++;
+            if (repeatCount < repeatTarget) {
+                setTimeout(() => { playPauseBtn.click(); }, repeatDelay);
+            } else {
+                repeatCount = 0;
+            }
+        });
+
+        /* seek */
+        progressBar.addEventListener('click', e => {
+            if (!audio.duration) return;
+            const rect  = progressBar.getBoundingClientRect();
+            const pos   = (e.clientX - rect.left) / rect.width;
+            audio.currentTime = pos * audio.duration;
+        });
+
+        /* speed selection */
+        speedBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const visible = speedMenu.style.display === 'flex';
+            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
+            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
+            if (!visible) speedMenu.style.display = 'flex';
+        });
+
+        speedMenu.addEventListener('click', e => {
+            if (e.target.tagName !== 'A') return;
+            e.preventDefault();
+            const rate = parseFloat(e.target.dataset.speed);
+            audio.playbackRate = rate;
+            speedBtn.textContent = `${rate.toFixed(1)}x`;
+            speedMenu.style.display = 'none';
+        });
+
+        /* repeat selection */
+        repeatBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const visible = repeatMenu.style.display === 'flex';
+            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
+            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
+            if (!visible) repeatMenu.style.display = 'flex';
+        });
+
+        repeatMenu.addEventListener('click', e => {
+            if (e.target.tagName !== 'A') return;
+            e.preventDefault();
+            repeatTarget = parseInt(e.target.dataset.repeat, 10);
+            repeatCount  = 0;
+            repeatBtn.textContent = `${repeatTarget}${repeatSymbol}`;
+            repeatMenu.style.display = 'none';
+        });
+    };
+
+    /* hide any open menus when user clicks elsewhere */
+    document.getElementById('qa').addEventListener('click', e => {
+        if (!e.target.closest('.speed-control') && !e.target.closest('.repeat-control')) {
+            document.querySelectorAll('.speed-menu').forEach(m => m.style.display = 'none');
+            document.querySelectorAll('.repeat-menu').forEach(m => m.style.display = 'none');
+        }
+    }, true);
+
+    /* ---------------
+         GLOBAL STOP BUTTON
+      *--------------- */
+    window.setupStopButtonListener = function () {
+        const btn = document.querySelector('.stop-button-container');
+        if (!btn || btn.classList.contains('stop-initialized')) return;
+
+        btn.addEventListener('click', () => {
+            if (typeof pycmd === 'function') pycmd('stopAudio');
+            document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
+            if (window.currentlyPlaying && !window.currentlyPlaying.paused)
+                window.currentlyPlaying.pause();
+        });
+        btn.classList.add('stop-initialized');
+    };
+
+    /* show / hide stop button if any audio exists */
+    window.checkAndShowStopButton = function () {
+        const btn = document.querySelector('.stop-button-container');
+        if (!btn) return;
+
+        const customPlayers      = document.querySelectorAll('.custom-audio-player-container').length;
+        const otherAnkiPlayers   = [...document.querySelectorAll('.replay-button')]
+                                   .filter(b => !b.closest('.stop-button-container')).length;
+        btn.style.display = customPlayers + otherAnkiPlayers > 0 ? 'block' : 'none';
+    };
+
+    /* ---------------
+         CARD BOOTSTRAP
+      *--------------- */
+    window.initializeCard = function () {
+        if (typeof pycmd === 'function') pycmd('stopAudio'); // cancel native autoplay before script takes over
+        document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
+        setupStopButtonListener();
+        checkAndShowStopButton();
+    };
+
+    /* give Anki a moment to inject built-in players, then init ours */
+    setTimeout(window.initializeCard, cardInitDelay);
+</script>
+
+
+
+
+
+<script>
+    (function () {
+        const SEARCH_HINT_ID = 'anki-selection-search-hint';
+        const SEARCH_BTN_CLASS = 'anki-selection-search-btn';
+
+        let api = null;
+
+        function initAnkiDroidApi() {
+            if (api) return api;
+            try {
+                const jsApiContract = {
+                    version: "0.0.3",
+                    developer: "your_email_here"
+                };
+                api = new AnkiDroidJS(jsApiContract);
+            } catch (e) {
+                api = null;
+            }
+            return api;
+        }
+
+        function removeSelectionSearchUI() {
+            document.querySelectorAll('.' + SEARCH_BTN_CLASS).forEach(btn => btn.remove());
+
+            const oldHint = document.getElementById(SEARCH_HINT_ID);
+            if (oldHint) oldHint.remove();
+        }
+
+        function getSelectedText() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return '';
+            return (sel.toString() || '').trim();
+        }
+
+        function escapeForAnkiSearch(text) {
+            return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        }
+
+        function showHint(text) {
+            const old = document.getElementById(SEARCH_HINT_ID);
+            if (old) old.remove();
+
+            const hint = document.createElement('div');
+            hint.id = SEARCH_HINT_ID;
+            hint.textContent = text;
+            hint.style.position = 'fixed';
+            hint.style.left = '50%';
+            hint.style.bottom = '80px';
+            hint.style.transform = 'translateX(-50%)';
+            hint.style.zIndex = '999999';
+            hint.style.background = 'rgba(0,0,0,0.85)';
+            hint.style.color = '#fff';
+            hint.style.padding = '10px 14px';
+            hint.style.borderRadius = '10px';
+            hint.style.fontSize = '14px';
+            hint.style.maxWidth = '85vw';
+            hint.style.wordBreak = 'break-word';
+            document.body.appendChild(hint);
+
+            setTimeout(() => {
+                if (hint.parentNode) hint.remove();
+            }, 2200);
+        }
+
+        async function fallbackCopyQuery(query) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(query);
+                    showHint('Search copied');
+                    return;
+                }
+            } catch (e) {}
+
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = query;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                showHint('Search copied');
+            } catch (e) {
+                showHint(query);
+            }
+        }
+
+        function tryOpenBrowserSearch(payload) {
+            try {
+                const ankidroidApi = initAnkiDroidApi();
+                if (ankidroidApi && typeof ankidroidApi.ankiNavigateCard === 'function') {
+                    ankidroidApi.ankiNavigateCard(payload);
+                    return true;
+                }
+                const request = JSON.parse(payload);
+                if (ankidroidApi && typeof ankidroidApi.ankiSearchCard === 'function') {
+                    ankidroidApi.ankiSearchCard(request.query);
+                    return true;
+                }
+            } catch (e) {}
+
+            return false;
+        }
+
+        function tryOpenPreviewSearch(payload) {
+            try {
+                window.location.href = `ankidroid-preview://navigate-card?payload=${encodeURIComponent(payload)}`;
+                return true;
+            } catch (e) {}
+
+            return false;
+        }
+
+        function getSelectionRect() {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return null;
+
+            const range = sel.getRangeAt(0);
+            if (range.collapsed) return null;
+
+            const rect = range.getBoundingClientRect();
+            if (rect && (rect.width || rect.height)) return rect;
+
+            const rects = range.getClientRects();
+            if (rects && rects.length) return rects[0];
+
+            return null;
+        }
+
+        function stripJsonComments(text) {
+            return String(text || '')
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/^\s*\/\/.*$/gm, '');
+        }
+
+        function getSearchConfig() {
+            const defaultConfig = {
+                character: {
+                    deck: 'MandarinMP::Characters',
+                    field: 'Front',
+                    matchMode: 'exact',
+                    openMode: 'answer',
+                    prefix: '',
+                    suffix: ''
+                },
+                singleCharWord: {
+                    deck: 'MandarinMP::Vocabulary',
+                    field: 'Front',
+                    matchMode: 'exact',
+                    openMode: 'answer',
+                    prefix: '',
+                    suffix: '.'
+                },
+                word: {
+                    deck: 'MandarinMP::Vocabulary',
+                    field: 'Front',
+                    matchMode: 'exact',
+                    openMode: 'answer',
+                    prefix: '',
+                    suffix: ''
+                }
+            };
+
+            const configEl = document.getElementById('ankidroid-nav-config');
+            if (!configEl) return defaultConfig;
+
+            try {
+                const parsed = JSON.parse(stripJsonComments(configEl.textContent || '{}'));
+                return {
+                    character: { ...defaultConfig.character, ...(parsed.character || {}) },
+                    singleCharWord: { ...defaultConfig.singleCharWord, ...(parsed.singleCharWord || {}) },
+                    word: { ...defaultConfig.word, ...(parsed.word || {}) }
+                };
+            } catch (e) {
+                return defaultConfig;
+            }
+        }
+
+        function buildNavigationPayload(query, config, selectedText) {
+            return JSON.stringify({
+                query,
+                selectedText,
+                openMode: String((config && config.openMode) || 'question').toLowerCase(),
+                search: {
+                    deck: String((config && config.deck) || ''),
+                    field: String((config && config.field) || 'Front'),
+                    matchMode: String((config && config.matchMode) || 'exact').toLowerCase(),
+                    prefix: String((config && config.prefix) || ''),
+                    suffix: String((config && config.suffix) || '')
+                }
+            });
+        }
+
+        function buildFieldQuery(text, config) {
+            const escapedDeck = escapeForAnkiSearch(config.deck || '');
+            const escapedField = String(config.field || 'Front');
+            const normalizedText = `${config.prefix || ''}${text}${config.suffix || ''}`;
+            const escapedText = escapeForAnkiSearch(normalizedText);
+            const matchMode = String(config.matchMode || 'exact').toLowerCase();
+            const fieldClause =
+                matchMode === 'partial'
+                    ? `${escapedField}:*${escapedText}*`
+                    : `${escapedField}:"${escapedText}"`;
+
+            return `deck:"${escapedDeck}" ${fieldClause}`;
+        }
+
+        function createSearchButton(selectedText, rect) {
+            removeSelectionSearchUI();
+
+            const clean = (selectedText || '').trim();
+            if (!clean || !rect) return;
+
+            const isSingleChar = clean.length === 1;
+
+            const btnWidth = 84;
+            const btnHeight = 36;
+            const btnGap = 8;
+            const nativePopupSafetyGap = 72;
+
+            const buttons = [];
+
+            function makeBtn(label, query, config, selectedText) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = SEARCH_BTN_CLASS;
+                btn.textContent = label;
+
+                btn.style.position = 'fixed';
+                btn.style.zIndex = '999999';
+                btn.style.width = btnWidth + 'px';
+                btn.style.height = btnHeight + 'px';
+                btn.style.border = 'none';
+                btn.style.borderRadius = '18px';
+                btn.style.background = '#2e7d32';
+                btn.style.color = '#fff';
+                btn.style.fontSize = '14px';
+                btn.style.fontWeight = '600';
+                btn.style.boxShadow = '0 3px 10px rgba(0,0,0,0.25)';
+                btn.style.opacity = '0.96';
+
+                btn.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+
+                btn.addEventListener('touchstart', function (e) {
+                    e.stopPropagation();
+                }, { passive: true });
+
+                btn.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const payload = buildNavigationPayload(query, config, selectedText);
+                    const ok = tryOpenBrowserSearch(payload) || tryOpenPreviewSearch(payload);
+                    if (!ok) {
+                        await fallbackCopyQuery(query);
+                    }
+
+                    removeSelectionSearchUI();
+                });
+
+                document.body.appendChild(btn);
+                buttons.push(btn);
+            }
+
+            function qChar(text) {
+                return buildFieldQuery(text, getSearchConfig().character);
+            }
+
+            function qWord(text) {
+                return buildFieldQuery(text, getSearchConfig().word);
+            }
+
+            function qSingleCharWord(text) {
+                return buildFieldQuery(text, getSearchConfig().singleCharWord);
+            }
+
+            const searchConfig = getSearchConfig();
+            if (isSingleChar) {
+                makeBtn('Char', qChar(clean), searchConfig.character, clean);
+                makeBtn('Word', qSingleCharWord(clean), searchConfig.singleCharWord, clean);
+            } else {
+                makeBtn('Search', qWord(clean), searchConfig.word, clean);
+            }
+
+            const totalWidth = (buttons.length * btnWidth) + ((buttons.length - 1) * btnGap);
+
+            let startLeft = rect.left + (rect.width / 2) - (totalWidth / 2);
+            startLeft = Math.max(8, Math.min(window.innerWidth - totalWidth - 8, startLeft));
+
+            let top = rect.bottom + nativePopupSafetyGap;
+            if (top + btnHeight > window.innerHeight - 8) {
+                top = rect.top - btnHeight - nativePopupSafetyGap;
+            }
+            top = Math.max(8, Math.min(window.innerHeight - btnHeight - 8, top));
+
+            buttons.forEach((btn, i) => {
+                btn.style.left = (startLeft + i * (btnWidth + btnGap)) + 'px';
+                btn.style.top = top + 'px';
+            });
+        }
+
+        function updateSelectionButton() {
+            const text = getSelectedText();
+            if (!text) {
+                removeSelectionSearchUI();
+                return;
+            }
+
+            const rect = getSelectionRect();
+            if (!rect) {
+                removeSelectionSearchUI();
+                return;
+            }
+
+            createSearchButton(text, rect);
+        }
+
+        document.addEventListener('selectionchange', function () {
+            setTimeout(updateSelectionButton, 180);
+        });
+
+        document.addEventListener('scroll', function () {
+            const text = getSelectedText();
+            if (!text) {
+                removeSelectionSearchUI();
+                return;
+            }
+            setTimeout(updateSelectionButton, 10);
+        }, true);
+
+        document.addEventListener('click', function (e) {
+            const clickedButton = e.target.closest('.' + SEARCH_BTN_CLASS);
+            if (!clickedButton) {
+                const sel = window.getSelection();
+                if (!sel || sel.isCollapsed) {
+                    removeSelectionSearchUI();
+                }
+            }
+        }, true);
+    })();
+</script>
+
+
+
+
+<!--
+   Fields
+-->
+{{#Pinyin}}
+<div class="field-container pinyin-field">
+    <div class="field-label">Pinyin for the entry:</div><br>
+    <div id="target-Pinyin"></div>
+    <div id="source-Pinyin" style="display: none;">{{Pinyin}}</div>
+    <script>
+        setTimeout(function() {
+            if (typeof renderFieldWithPlayers === 'function') {
+                renderFieldWithPlayers('source-Pinyin', 'target-Pinyin');
+            }
+        }, 0);
+    </script>
+</div>
+<hr>
+{{/Pinyin}}
+
+
+{{#Scene}}
+<div class="field-container scene-field">
+    <br><div class="field-label">Scene:</div><br>
+    <div id="target-Scene"></div>
+    <div id="source-Scene" style="display: none;">{{Scene}}</div>
+    <script>
+        setTimeout(function() {
+            if (typeof renderFieldWithPlayers === 'function') {
+                renderFieldWithPlayers('source-Scene', 'target-Scene');
+            }
+        }, 0);
+    </script>
+</div>
+<hr>
+{{/Scene}}
+
+
+
+
+{{#Reason}}
+<div class="field-container reason-field">
+    <br><div class="field-label">Reason (Actor, Set, Props):</div><br>
+    <div id="target-Reason"></div>
+    <div id="source-Reason" style="display: none;">{{Reason}}</div>
+    <script>
+        setTimeout(function() {
+            if (typeof renderFieldWithPlayers === 'function') {
+                renderFieldWithPlayers('source-Reason', 'target-Reason');
+            }
+        }, 0);
+    </script>
+</div>
+<hr>
+{{/Reason}}
+
+
+{{#Examples}}
+<div class="field-container examples-field">
+    <br><div class="field-label">Examples:</div><br>
+    <div id="target-Examples"></div>
+    <div id="source-Examples" style="display: none;">{{Examples}}</div>
+    <script>
+        setTimeout(function() {
+            if (typeof renderFieldWithPlayers === 'function') {
+                renderFieldWithPlayers('source-Examples', 'target-Examples');
+            }
+        }, 0);
+    </script>
+</div>
+<hr>
+{{/Examples}}
+
+
+{{HSK Frequency}}
+
+<script id="ankidroid-nav-config" type="application/json">
+{
+  // matchMode: "exact" | "partial"
+  // openMode: "question" | "answer"
+  "character": {
+    "deck": "MandarinMP::Characters",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  },
+  // singleCharWord is used by the "Word" button when only one character is selected.
+  "singleCharWord": {
+    "deck": "MandarinMP::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": "."
+  },
+  "word": {
+    "deck": "MandarinMP::Vocabulary",
+    "field": "Front",
+    "matchMode": "exact",
+    "openMode": "answer",
+    "prefix": "",
+    "suffix": ""
+  }
+}
+</script>
+
+<!-- Auto-play first audio player on card load (respects repeat count) -->
+<script>
+    setTimeout(function() {
+        if (typeof pycmd === 'function') pycmd('stopAudio');
+        document.querySelectorAll('audio:not(.audio-element)').forEach(a => a.pause());
+        var firstPlayBtn = document.querySelector('.custom-audio-player-container .play-pause-btn');
+        if (firstPlayBtn) firstPlayBtn.click();
+    }, autoPlayDelay);
+</script>
+

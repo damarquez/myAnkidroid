@@ -1052,6 +1052,7 @@ open class CardTemplateEditor :
             // marked insert field menu item invisible for style view
             val isInsertFieldItemVisible = currentEditorViewId != R.id.styling_edit
             menu.findItem(R.id.action_insert_field).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_nav_control).isVisible = isInsertFieldItemVisible
         }
 
         @NeedsTest("Notetype is restored to stock kind")
@@ -1096,6 +1097,11 @@ open class CardTemplateEditor :
                 R.id.action_insert_field -> {
                     Timber.i("CardTemplateEditor:: Insert field button pressed")
                     showInsertFieldDialog()
+                    return true
+                }
+                R.id.action_insert_nav_control -> {
+                    Timber.i("CardTemplateEditor:: Insert nav control button pressed")
+                    insertField(NAV_CONTROL_TEMPLATE)
                     return true
                 }
                 R.id.action_delete -> {
@@ -1545,6 +1551,42 @@ open class CardTemplateEditor :
         }
 
         companion object {
+            private val NAV_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-nav-config" type="application/json">
+                {
+                  // matchMode: "exact" | "partial"
+                  // openMode: "question" | "answer"
+                  "character": {
+                    "deck": "TargetDeck::Characters",
+                    "field": "Front",
+                    "matchMode": "exact",
+                    "openMode": "answer",
+                    "prefix": "",
+                    "suffix": ""
+                  },
+                  // singleCharWord is used by the "Word" button when only one character is selected.
+                  "singleCharWord": {
+                    "deck": "TargetDeck::Vocabulary",
+                    "field": "Front",
+                    "matchMode": "exact",
+                    "openMode": "answer",
+                    "prefix": "",
+                    "suffix": "."
+                  },
+                  "word": {
+                    "deck": "TargetDeck::Vocabulary",
+                    "field": "Front",
+                    "matchMode": "exact",
+                    "openMode": "answer",
+                    "prefix": "",
+                    "suffix": ""
+                  }
+                }
+                </script>
+
+                """.trimIndent()
+
             fun newInstance(
                 cardIndex: Int,
                 noteId: NoteId,

@@ -1,0 +1,14 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(sed -i '470,784d' testTemplates/MandarinMemPalaceScene/Card1Back.html)",
+            "Bash(sed -n '465,475p' testTemplates/MandarinMemPalaceScene/Card1Back.html)",
+            "Bash(git stash *)",
+            "Bash(./gradlew :AnkiDroid:compilePlayDebugKotlin)",
+            "Bash(export JAVA_HOME=\"/c/Program Files/Android/Android Studio1/jbr\")",
+            "Bash(./gradlew :AnkiDroid:assemblePlayDebug)",
+            "Bash(adb devices *)",
+            "Bash(adb shell *)"
+        ]
+    }
+}
