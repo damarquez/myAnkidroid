@@ -74,6 +74,7 @@ fun stdHtml(
         <html class="$docClass" dir="$languageDirectionality" data-bs-theme="$baseTheme">
         <head>
             <title>AnkiDroid</title>
+                <link rel="stylesheet" type="text/css" href="file:///android_asset/flashcard.css">
                 <link rel="stylesheet" type="text/css" href="file:///android_asset/backend/css/root-vars.css">
                 <link rel="stylesheet" type="text/css" href="file:///android_asset/backend/css/reviewer.css">
                 <link rel="stylesheet" type="text/css" href="file:///android_asset/ankidroid.css">

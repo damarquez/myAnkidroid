@@ -209,6 +209,7 @@ abstract class CardViewerFragment(
         ): Boolean {
             when (url.scheme) {
                 "playsound" -> viewModel.playSoundFromUrl(url.toString())
+                "stopsound" -> viewModel.stopSoundFromUrl(url.toString())
                 "videoended" -> viewModel.onVideoFinished()
                 "videopause" -> viewModel.onVideoPaused()
                 "tts-voices" -> TtsVoicesDialogFragment().show(childFragmentManager, null)

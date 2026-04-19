@@ -15,6 +15,7 @@
  */
 package com.ichi2.anki.previewer
 
+import android.net.Uri
 import androidx.annotation.CallSuper
 import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.SavedStateHandle
@@ -100,6 +101,23 @@ abstract class CardViewerViewModel(
         }
     }
 
+    fun stopSoundFromUrl(url: String) {
+        launchCatchingIO {
+            cardMediaPlayer.stop()
+            val parsed = Uri.parse(url)
+            val playerId =
+                if (parsed.isHierarchical) {
+                    parsed.getQueryParameter("playerId")
+                } else {
+                    null
+                }
+            emitAudioPlayerState(
+                state = "stopped",
+                playerId = playerId,
+            )
+        }
+    }
+
     fun onVideoFinished() = cardMediaPlayer.onVideoFinished()
 
     // A coroutine in the cardMediaPlayer waits for the video to complete
@@ -166,6 +184,17 @@ abstract class CardViewerViewModel(
             "i18nResources" -> withCol { i18nResourcesRaw(bytes) }
             else -> throw IllegalArgumentException("Unhandled Anki request: $uri")
         }
+
+    private suspend fun emitAudioPlayerState(
+        state: String,
+        playerId: String?,
+    ) {
+        eval.emit(
+            "window.dispatchEvent(new CustomEvent('ankidroid-audio-player-state', { detail: { state: ${org.json.JSONObject.quote(
+                state,
+            )}, playerId: ${if (playerId != null) org.json.JSONObject.quote(playerId) else "null"} } }));",
+        )
+    }
 
     companion object {
         private const val KEY_SHOWING_ANSWER = "showingAnswer"
