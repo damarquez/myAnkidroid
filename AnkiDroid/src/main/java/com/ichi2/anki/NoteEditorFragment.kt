@@ -160,6 +160,7 @@ import com.ichi2.anki.preferences.sharedPrefs
 import com.ichi2.anki.previewer.TemplatePreviewerArguments
 import com.ichi2.anki.previewer.TemplatePreviewerPage
 import com.ichi2.anki.props.SEARCH_APPLY_MODE_APPEND
+import com.ichi2.anki.props.SEARCH_APPLY_MODE_WHOLE_ENTRY
 import com.ichi2.anki.props.SEARCH_MATCH_MODE_EXACT
 import com.ichi2.anki.props.SEARCH_MATCH_MODE_PARTIAL
 import com.ichi2.anki.props.TemplateActorSearchConfigException
@@ -3371,7 +3372,7 @@ class NoteEditorFragment :
                     showSnackbar(getString(R.string.note_editor_prop_search_more_results))
                     return@setAdapter
                 }
-                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.insertValue, applyMode)
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion, applyMode)
                 showSnackbar(getString(R.string.note_editor_prop_search_applied, currentFieldName))
             }.show()
     }
@@ -3399,7 +3400,7 @@ class NoteEditorFragment :
                     showSnackbar(getString(R.string.note_editor_actor_search_more_results))
                     return@setAdapter
                 }
-                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.label, applyMode)
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion, applyMode)
                 showSnackbar(getString(R.string.note_editor_actor_search_applied, currentFieldName))
             }.show()
     }
@@ -3427,7 +3428,7 @@ class NoteEditorFragment :
                     showSnackbar(getString(R.string.note_editor_set_search_more_results))
                     return@setAdapter
                 }
-                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.label, applyMode)
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion, applyMode)
                 showSnackbar(getString(R.string.note_editor_set_search_applied, currentFieldName))
             }.show()
     }
@@ -3435,18 +3436,19 @@ class NoteEditorFragment :
     private fun applyReasonSearchSuggestion(
         field: FieldEditText,
         activeSearch: ActivePropSearch,
-        value: String,
+        suggestion: PropSearchSuggestion,
         applyMode: String,
     ) {
         val editable = field.text ?: return
+        val normalizedMode = applyMode.lowercase(Locale.ROOT)
         val replacement =
-            if (applyMode.lowercase(Locale.ROOT) == SEARCH_APPLY_MODE_APPEND) {
-                "${activeSearch.query} ($value)"
-            } else {
-                value
+            when (normalizedMode) {
+                SEARCH_APPLY_MODE_APPEND -> "${activeSearch.query} (${suggestion.label})"
+                SEARCH_APPLY_MODE_WHOLE_ENTRY.lowercase(Locale.ROOT) -> "${suggestion.insertValue} (${suggestion.label})"
+                else -> suggestion.insertValue
             }
         val replaceEnd =
-            if (applyMode.lowercase(Locale.ROOT) == SEARCH_APPLY_MODE_APPEND) {
+            if (normalizedMode == SEARCH_APPLY_MODE_APPEND || normalizedMode == SEARCH_APPLY_MODE_WHOLE_ENTRY.lowercase(Locale.ROOT)) {
                 findImmediateParenthesizedAnnotationEnd(editable.toString(), activeSearch.end)
             } else {
                 activeSearch.end

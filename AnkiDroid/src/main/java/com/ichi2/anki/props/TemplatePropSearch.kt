@@ -154,6 +154,7 @@ const val SEARCH_MATCH_MODE_EXACT = "exact"
 const val SEARCH_MATCH_MODE_PARTIAL = "partial"
 const val SEARCH_APPLY_MODE_REPLACE = "replace"
 const val SEARCH_APPLY_MODE_APPEND = "append"
+const val SEARCH_APPLY_MODE_WHOLE_ENTRY = "wholeEntry"
 private const val DEFAULT_MATCH_MODE = SEARCH_MATCH_MODE_EXACT
 private const val DEFAULT_TOKEN_PATTERN = "[A-Za-z]+"
 private const val DEFAULT_MAX_RESULTS = 8

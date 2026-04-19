@@ -1729,7 +1729,7 @@ open class CardTemplateEditor :
                     "searchCloze": 2,
                     // matchMode: "exact" | "partial"
                     "matchMode": "exact",
-                    // applyMode: "replace" | "append"
+                    // applyMode: "replace" | "append" | "wholeEntry"
                     "applyMode": "replace",
                     // Regex used to detect the active token around the cursor when nothing is selected.
                     "tokenPattern": "[A-Za-z]+",
@@ -1758,7 +1758,7 @@ open class CardTemplateEditor :
                     "labelCloze": 2,
                     // matchMode: "exact" | "partial"
                     "matchMode": "exact",
-                    // applyMode: "replace" | "append"
+                    // applyMode: "replace" | "append" | "wholeEntry"
                     "applyMode": "append",
                     // Regex used to detect the active token around the cursor when nothing is selected.
                     "tokenPattern": "[A-Za-z]+-?",
@@ -1785,7 +1785,7 @@ open class CardTemplateEditor :
                     "labelField": "Front",
                     // matchMode: "exact" | "partial"
                     "matchMode": "exact",
-                    // applyMode: "replace" | "append"
+                    // applyMode: "replace" | "append" | "wholeEntry"
                     "applyMode": "append",
                     // Regex used to detect the active token around the cursor when nothing is selected.
                     "tokenPattern": "-?[\\p{L}\\p{M}]+",
