@@ -165,6 +165,8 @@
     <string name="note_editor_ai_generate_missing_model">Set an AI model in Advanced settings first</string>
     <string name="note_editor_ai_generate_invalid_config">Invalid ankidroid-ai-config in the card template</string>
     <string name="note_editor_ai_generate_no_matching_prompt">No AI prompt matched the current field: %1$s</string>
+    <string name="note_editor_ai_generate_confirm_title">Confirm AI prompt</string>
+    <string name="note_editor_ai_generate_confirm_action">Send prompt</string>
     <string name="note_editor_ai_generate_in_progress">Generating text…</string>
     <string name="note_editor_ai_generate_applied">AI text applied to %1$s</string>
     <string name="note_editor_clean_audio_tags">Clean audio tags</string>

@@ -235,6 +235,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 const val CALLER_KEY = "caller"
+private const val AI_PROMPT_PREVIEW_LENGTH = 150
 
 /**
  * Allows the user to edit a note, for instance if there is a typo. A card is a presentation of a note, and has two
@@ -2662,7 +2663,7 @@ class NoteEditorFragment :
         }
 
         val originalText = currentField.text?.toString().orEmpty()
-        val cleanedText = collapseDuplicateAudioTags(originalText)
+        val cleanedText = normalizeNumberedExampleHideMarkers(collapseDuplicateAudioTags(originalText))
         if (cleanedText == originalText) {
             showSnackbar(getString(R.string.note_editor_clean_audio_tags_no_matches))
             return
@@ -2692,6 +2693,89 @@ class NoteEditorFragment :
             }
 
         return collapseMatchingPairs(collapseMatchingPairs(text, plainPattern), starredPattern)
+    }
+
+    private fun normalizeNumberedExampleHideMarkers(text: String): String {
+        val normalizedNewlines = text.replace("\r\n", "\n").replace('\r', '\n')
+        val lines = normalizedNewlines.split('\n').map(String::trimEnd).toMutableList()
+        var index = 0
+        while (index < lines.size) {
+            val trimmed = lines[index].trim()
+            val combinedMatch = helperNumberedChineseLine.find(trimmed)
+            if (combinedMatch != null) {
+                val soundPrefix = combinedMatch.groupValues[2].trim()
+                val chineseText = stripExampleHelperMarkup(combinedMatch.groupValues[3])
+                lines[index] =
+                    buildString {
+                        append(combinedMatch.groupValues[1])
+                        append(".")
+                        if (soundPrefix.isNotBlank()) {
+                            append(" ")
+                            append(soundPrefix)
+                        }
+                        if (chineseText.isNotBlank()) {
+                            append(" ")
+                            append(appendExampleHelperSuffix(chineseText, 1))
+                        }
+                    }.trimEnd()
+                applyExampleHelperMarkers(lines, chineseIndex = index, startIndex = index + 1)
+                index++
+                continue
+            }
+
+            val numberOnlyMatch = helperNumberOnlyLine.find(trimmed)
+            if (numberOnlyMatch != null) {
+                val nextIdx = index + 1
+                if (nextIdx < lines.size) {
+                    val nextLine = stripExampleHelperMarkup(lines[nextIdx]).trim()
+                    if (nextLine.isNotBlank() && helperStartsWithCjk.containsMatchIn(nextLine)) {
+                        applyExampleHelperMarkers(lines, chineseIndex = nextIdx, startIndex = nextIdx + 1)
+                    }
+                }
+            }
+            index++
+        }
+        return lines.joinToString("\n").trim()
+    }
+
+    private fun applyExampleHelperMarkers(
+        lines: MutableList<String>,
+        chineseIndex: Int,
+        startIndex: Int,
+    ) {
+        lines[chineseIndex] = appendExampleHelperSuffix(lines[chineseIndex], 1)
+        var pinyinApplied = false
+        var translationApplied = false
+        for (j in startIndex until minOf(startIndex + 3, lines.size)) {
+            val line = stripExampleHelperMarkup(lines[j]).trim()
+            if (line.isBlank()) break
+            if (helperNumberedChineseLine.containsMatchIn(line)) break
+            if (helperNumberOnlyLine.containsMatchIn(line)) break
+            if (!pinyinApplied) {
+                lines[j] = appendExampleHelperSuffix(lines[j], 2)
+                pinyinApplied = true
+                continue
+            }
+            if (!translationApplied) {
+                lines[j] = appendExampleHelperSuffix(lines[j], 3)
+                translationApplied = true
+                continue
+            }
+        }
+    }
+
+    private fun stripExampleHelperMarkup(value: String): String =
+        value
+            .replace(helperHiddenLineSuffix, "")
+            .replace(helperSpacesBeforeNewline, "\n")
+            .trimEnd()
+
+    private fun appendExampleHelperSuffix(
+        line: String,
+        marker: Int,
+    ): String {
+        val stripped = helperHiddenLineSuffix.replace(line, "").trimEnd()
+        return "$stripped(*$marker)"
     }
 
     private fun generateAiTextInCurrentField() {
@@ -2735,16 +2819,47 @@ class NoteEditorFragment :
                 return
             }
 
-        launchCatchingTask {
-            val generatedText =
-                withProgress(R.string.note_editor_ai_generate_in_progress) {
-                    aiTextGenerator.generateText(serviceSettings, promptText)
+        confirmAiPrompt(
+            promptText = promptText,
+            onConfirm = {
+                launchCatchingTask {
+                    val generatedText =
+                        withProgress(R.string.note_editor_ai_generate_in_progress) {
+                            aiTextGenerator.generateText(serviceSettings, promptText)
+                        }
+                    val targetField = editFields?.getOrNull(currentField.ord) ?: currentField
+                    targetField.setText(generatedText)
+                    targetField.setSelection(generatedText.length)
+                    showSnackbar(getString(R.string.note_editor_ai_generate_applied, currentFieldName))
                 }
-            val targetField = editFields?.getOrNull(currentField.ord) ?: currentField
-            targetField.setText(generatedText)
-            targetField.setSelection(generatedText.length)
-            showSnackbar(getString(R.string.note_editor_ai_generate_applied, currentFieldName))
-        }
+            },
+        )
+    }
+
+    private fun confirmAiPrompt(
+        promptText: String,
+        onConfirm: () -> Unit,
+    ) {
+        val preview =
+            promptText
+                .trim()
+                .take(AI_PROMPT_PREVIEW_LENGTH)
+                .let { snippet ->
+                    if (promptText.trim().length > snippet.length) {
+                        "$snippet..."
+                    } else {
+                        snippet
+                    }
+                }
+
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle(R.string.note_editor_ai_generate_confirm_title)
+            .setMessage(preview)
+            .setPositiveButton(R.string.note_editor_ai_generate_confirm_action) { _, _ ->
+                onConfirm()
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun insertPropInCurrentField() {
@@ -3545,6 +3660,12 @@ class NoteEditorFragment :
         val suggestion: PropSearchSuggestion?,
         val isOverflow: Boolean = false,
     )
+
+    private val helperNumberedChineseLine = Regex("""^(\d+(?:\.\d+)*)\.\s*((?:\[sound:[^\]\r\n]+\]\s*)*)([\p{IsHan}].*)$""")
+    private val helperNumberOnlyLine = Regex("""^(\d+(?:\.\d+)*)\.\s*(?:\[sound:[^\]\r\n]+\]\s*)*$""")
+    private val helperStartsWithCjk = Regex("""^[\p{IsHan}]""")
+    private val helperHiddenLineSuffix = Regex("""\s*\(\*\d?\)\s*$""")
+    private val helperSpacesBeforeNewline = Regex("""[ \t]+\n""")
 
     private inner class PropSearchSuggestionAdapter(
         context: Context,
