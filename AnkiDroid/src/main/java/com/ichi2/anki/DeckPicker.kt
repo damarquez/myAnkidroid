@@ -92,6 +92,7 @@ import com.ichi2.anki.analytics.UsageAnalytics
 import com.ichi2.anki.android.back.exitViaDoubleTapBackCallback
 import com.ichi2.anki.android.input.ShortcutGroup
 import com.ichi2.anki.android.input.shortcut
+import com.ichi2.anki.browser.BrowserDestination
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.common.time.TimeManager
 import com.ichi2.anki.common.utils.annotation.KotlinCleanup
@@ -552,6 +553,10 @@ open class DeckPicker :
                 onDeckRightClick = { deckId, x, y ->
                     showDeckPickerRightClickContextMenu(deckId, x, y)
                     Timber.d("Right Click on deck recorded!! %d, %f %f", deckId, x, y)
+                },
+                onDeckBrowseSelected = { deckId ->
+                    Timber.i("Opening card browser for deck %d", deckId)
+                    startActivity(BrowserDestination.ToDeck(deckId).toIntent(this))
                 },
             )
         deckPickerBinding.decks.adapter = deckListAdapter

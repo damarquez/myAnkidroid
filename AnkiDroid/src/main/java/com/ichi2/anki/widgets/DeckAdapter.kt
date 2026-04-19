@@ -54,6 +54,7 @@ class DeckAdapter(
     private val onDeckChildrenToggled: (DeckId) -> Unit,
     private val onDeckContextRequested: (DeckId) -> Unit,
     private val onDeckRightClick: (DeckId, Float, Float) -> Unit,
+    private val onDeckBrowseSelected: (DeckId) -> Unit,
 ) : ListAdapter<DisplayDeckNode, DeckAdapter.ViewHolder>(deckNodeDiffCallback) {
     private val layoutInflater = LayoutInflater.from(context)
     private val zeroCountColor: Int
@@ -181,6 +182,7 @@ class DeckAdapter(
             true
         }
         binding.countsLayout.setOnClickListener { onDeckCountsSelected(node.did) }
+        binding.deckBrowse.setOnClickListener { onDeckBrowseSelected(node.did) }
 
         // Right click listener for right click context menus
         holder.binding.deckLayout.setOnGenericMotionListener { _, motionEvent ->
