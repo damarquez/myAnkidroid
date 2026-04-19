@@ -36,6 +36,7 @@ import com.ichi2.anki.launchCatchingTask
 import com.ichi2.anki.provider.CardContentProvider
 import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.anki.tts.AzureSpeechPreferences
 import com.ichi2.anki.utils.openUrl
 import com.ichi2.utils.show
 import timber.log.Timber
@@ -50,6 +51,7 @@ class AdvancedSettingsFragment : SettingsFragment() {
     override fun initSubscreen() {
         removeUnnecessaryAdvancedPrefs()
         NoteEditorAiPreferences(requireContext()).ensureDefaults()
+        AzureSpeechPreferences(requireContext()).ensureDefaults()
 
         // Check that input is valid before committing change in the collection path
         requirePreference<EditTextPreference>(CollectionHelper.PREF_COLLECTION_PATH).apply {
@@ -142,6 +144,25 @@ class AdvancedSettingsFragment : SettingsFragment() {
                 value = AiProvider.OpenAI.preferenceValue
             }
         }
+        requirePreference<EditTextPreference>(R.string.pref_azure_speech_key_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                when {
+                    preference.text.isNullOrBlank() -> getString(R.string.pref_ai_api_key_not_set)
+                    else -> getString(R.string.pref_ai_api_key_configured)
+                }
+            }
+        requirePreference<EditTextPreference>(R.string.pref_azure_speech_region_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                preference.text?.takeIf { it.isNotBlank() } ?: getString(R.string.pref_ai_model_not_set)
+            }
+        requirePreference<EditTextPreference>(R.string.pref_azure_speech_voices_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                preference.text?.takeIf { it.isNotBlank() } ?: AzureSpeechPreferences(requireContext()).load().voicesRaw
+            }
+        requirePreference<EditTextPreference>(R.string.pref_azure_speech_output_format_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                preference.text?.takeIf { it.isNotBlank() } ?: AzureSpeechPreferences(requireContext()).load().outputFormat
+            }
 
         // Enable API
         requirePreference<SwitchPreferenceCompat>(R.string.enable_api_key).setOnPreferenceChangeListener { newValue ->

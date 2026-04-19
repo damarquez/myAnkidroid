@@ -127,6 +127,26 @@
                 android:summary="@string/pref_ai_model_summary"
                 android:title="@string/pref_ai_model_title" />
         </PreferenceCategory>
+        <PreferenceCategory
+            android:key="@string/pref_cat_azure_speech_key"
+            android:title="@string/pref_cat_azure_speech" >
+            <EditTextPreference
+                android:key="@string/pref_azure_speech_key_key"
+                android:summary="@string/pref_azure_speech_key_summary"
+                android:title="@string/pref_azure_speech_key_title" />
+            <EditTextPreference
+                android:key="@string/pref_azure_speech_region_key"
+                android:summary="@string/pref_azure_speech_region_summary"
+                android:title="@string/pref_azure_speech_region_title" />
+            <EditTextPreference
+                android:key="@string/pref_azure_speech_voices_key"
+                android:summary="@string/pref_azure_speech_voices_summary"
+                android:title="@string/pref_azure_speech_voices_title" />
+            <EditTextPreference
+                android:key="@string/pref_azure_speech_output_format_key"
+                android:summary="@string/pref_azure_speech_output_format_summary"
+                android:title="@string/pref_azure_speech_output_format_title" />
+        </PreferenceCategory>
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:icon="@drawable/ic_warning"

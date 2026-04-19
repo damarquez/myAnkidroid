@@ -45,6 +45,7 @@
     <string name="pref_cat_workarounds" maxLength="41">Workarounds</string>
     <string name="pref_cat_plugins" maxLength="41">Plugins</string>
     <string name="pref_cat_ai" maxLength="41">AI</string>
+    <string name="pref_cat_azure_speech" maxLength="41">Azure Speech</string>
     <string name="pref_cat_editing" maxLength="41">Editing</string>
 
     <!-- preferences.xml entries-->
@@ -188,6 +189,14 @@
     <string name="pref_ai_model_title" maxLength="41">AI model</string>
     <string name="pref_ai_model_summary">Model name used for note-editor AI generation</string>
     <string name="pref_ai_model_not_set">Not set</string>
+    <string name="pref_azure_speech_key_title" maxLength="41">Speech key</string>
+    <string name="pref_azure_speech_key_summary">Azure Speech subscription key</string>
+    <string name="pref_azure_speech_region_title" maxLength="41">Speech region</string>
+    <string name="pref_azure_speech_region_summary">Azure region used for speech synthesis</string>
+    <string name="pref_azure_speech_voices_title" maxLength="41">Voices</string>
+    <string name="pref_azure_speech_voices_summary">Comma- or newline-separated Azure voice names</string>
+    <string name="pref_azure_speech_output_format_title" maxLength="41">Output format</string>
+    <string name="pref_azure_speech_output_format_summary">Azure output format such as audio-24khz-96kbitrate-mono-mp3</string>
     <string name="custom_buttons" maxLength="41">App bar buttons</string>
     <string name="custom_buttons_summary">Customize which actions appear in the app bar</string>
     <string name="custom_buttons_setting_always_show">Always show</string>

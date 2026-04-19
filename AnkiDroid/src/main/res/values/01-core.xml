@@ -141,7 +141,21 @@
     <string name="card_template_editor_insert_nav_control" maxLength="28">Insert nav control</string>
     <string name="card_template_editor_insert_audio_player_control" maxLength="28">Insert player control</string>
     <string name="card_template_editor_insert_ai_control" maxLength="28">Insert AI control</string>
+    <string name="card_template_editor_insert_tts_control" maxLength="28">Insert TTS control</string>
     <string name="card_template_editor_select_field">Select field</string>
+    <string name="note_editor_tts_generate">Generate Azure audio</string>
+    <string name="note_editor_tts_no_field">Tap inside a field first</string>
+    <string name="note_editor_tts_missing_speech_key">Set an Azure Speech key in Advanced settings first</string>
+    <string name="note_editor_tts_missing_speech_region">Set an Azure Speech region in Advanced settings first</string>
+    <string name="note_editor_tts_missing_voices">Set at least one Azure Speech voice in Advanced settings first</string>
+    <string name="note_editor_tts_missing_output_format">Set an Azure Speech output format in Advanced settings first</string>
+    <string name="note_editor_tts_invalid_config">Invalid ankidroid-tts-config in the card template</string>
+    <string name="note_editor_tts_no_matching_rule">No TTS rule matched the current field: %1$s</string>
+    <string name="note_editor_tts_missing_source_field">The configured source field is missing or empty: %1$s</string>
+    <string name="note_editor_tts_missing_target_field">The configured target field was not found: %1$s</string>
+    <string name="note_editor_tts_missing_filename_base">The configured TTS filename base is empty</string>
+    <string name="note_editor_tts_in_progress">Generating Azure audio…</string>
+    <string name="note_editor_tts_applied">Generated %1$d audio files and updated %2$s</string>
     <string name="note_editor_ai_generate">Generate text with AI</string>
     <string name="note_editor_ai_generate_no_field">Tap inside a field first</string>
     <string name="note_editor_ai_generate_missing_api_key">Set an AI API key in Advanced settings first</string>

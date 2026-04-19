@@ -163,6 +163,13 @@ import com.ichi2.anki.servicelayer.NoteService.convertToHtmlNewline
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.anki.tts.AzureSpeechPreferences
+import com.ichi2.anki.tts.AzureSpeechSynthesizer
+import com.ichi2.anki.tts.TemplateAzureTtsConfigException
+import com.ichi2.anki.tts.buildTemplateAzureTtsFilenameBase
+import com.ichi2.anki.tts.generateAzureTtsForRule
+import com.ichi2.anki.tts.parseTemplateAzureTtsRules
+import com.ichi2.anki.tts.selectTemplateAzureTtsRule
 import com.ichi2.anki.ui.setupNoteTypeSpinner
 import com.ichi2.anki.utils.RunOnlyOnce
 import com.ichi2.anki.utils.ext.sharedPrefs
@@ -295,6 +302,7 @@ class NoteEditorFragment :
     private val fieldState = FieldState.fromEditor(this)
     private lateinit var toolbar: Toolbar
     private val aiTextGenerator by lazy { NoteEditorAiTextGenerator() }
+    private val azureSpeechSynthesizer by lazy { AzureSpeechSynthesizer() }
 
     // Use the same HTML if the same image is pasted multiple times.
     private var pastedImageCache: HashMap<String, String> = HashMap()
@@ -2516,6 +2524,7 @@ class NoteEditorFragment :
                 type = AddClozeType.SAME_NUMBER,
             )
         }
+        addGenerateAzureTtsButton()
         addGenerateAiTextButton()
         addCleanAudioTagsButton()
         val buttons = toolbarButtons
@@ -2570,6 +2579,16 @@ class NoteEditorFragment :
         val button =
             toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("AI")) {
                 generateAiTextInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addGenerateAzureTtsButton() {
+        val label = getString(R.string.note_editor_tts_generate)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("TTS")) {
+                generateAzureTtsInCurrentField()
             }
         button.contentDescription = label
         button.setTooltipTextCompat(label)
@@ -2668,6 +2687,103 @@ class NoteEditorFragment :
         }
     }
 
+    private fun generateAzureTtsInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_tts_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_tts_no_field))
+            return
+        }
+
+        val speechSettings = AzureSpeechPreferences(requireContext()).load()
+        speechSettings.missingConfigurationMessage(requireContext())?.let {
+            showSnackbar(it)
+            return
+        }
+
+        val ttsRules =
+            try {
+                parseTemplateAzureTtsRules(editorNote!!.notetype)
+            } catch (e: TemplateAzureTtsConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_tts_invalid_config))
+                return
+            }
+
+        val ttsRule = selectTemplateAzureTtsRule(ttsRules, currentFieldName)
+        if (ttsRule == null) {
+            showSnackbar(getString(R.string.note_editor_tts_no_matching_rule, currentFieldName))
+            return
+        }
+
+        val fieldValues = currentFieldValuesByName()
+        val fieldIndexes = currentFieldIndexesByName()
+        val sourceFieldName = ttsRule.sourceField ?: currentFieldName
+        val targetFieldName = ttsRule.targetField ?: sourceFieldName
+        val sourceText = fieldValues[sourceFieldName]
+        if (sourceText.isNullOrBlank()) {
+            showSnackbar(getString(R.string.note_editor_tts_missing_source_field, sourceFieldName))
+            return
+        }
+
+        val filenameBase =
+            try {
+                buildTemplateAzureTtsFilenameBase(ttsRule, fieldValues)
+            } catch (e: TemplateAzureTtsConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_tts_invalid_config))
+                return
+            }
+
+        if (filenameBase.isBlank()) {
+            showSnackbar(getString(R.string.note_editor_tts_missing_filename_base))
+            return
+        }
+
+        val targetFieldIndex = fieldIndexes[targetFieldName]
+        if (targetFieldIndex == null) {
+            showSnackbar(getString(R.string.note_editor_tts_missing_target_field, targetFieldName))
+            return
+        }
+
+        launchCatchingTask {
+            val result =
+                withProgress(R.string.note_editor_tts_in_progress) {
+                    generateAzureTtsForRule(
+                        rule = ttsRule,
+                        sourceText = sourceText,
+                        filenameBase = filenameBase,
+                        settings = speechSettings,
+                        synthesizer = azureSpeechSynthesizer,
+                        importAudio = { desiredFilename, audioBytes, _ ->
+                            importGeneratedAzureAudio(desiredFilename, audioBytes)
+                        },
+                    )
+                }
+            val targetField = editFields?.getOrNull(targetFieldIndex) ?: currentField
+            val updatedText =
+                if (ttsRule.mode == "simpleExample") {
+                    appendGeneratedTtsToField(targetField.text?.toString().orEmpty(), result.transformedText)
+                } else {
+                    result.transformedText
+                }
+            targetField.setText(updatedText)
+            if (targetField.hasFocus()) {
+                targetField.setSelection(updatedText.length)
+            }
+            showSnackbar(
+                getString(
+                    R.string.note_editor_tts_applied,
+                    result.storedFilenames.size,
+                    targetFieldName,
+                ),
+            )
+        }
+    }
+
     private fun currentFieldName(ord: Int): String? = editorNote?.notetype?.fieldsNames?.getOrNull(ord)
 
     private fun currentFieldValuesByName(): Map<String, String> {
@@ -2676,6 +2792,78 @@ class NoteEditorFragment :
             for (index in fieldNames.indices) {
                 put(fieldNames[index], getCurrentFieldText(index))
             }
+        }
+    }
+
+    private fun currentFieldIndexesByName(): Map<String, Int> {
+        val fieldNames = editorNote?.notetype?.fieldsNames.orEmpty()
+        return buildMap {
+            for (index in fieldNames.indices) {
+                put(fieldNames[index], index)
+            }
+        }
+    }
+
+    private suspend fun importGeneratedAzureAudio(
+        desiredFilename: String,
+        audioBytes: ByteArray,
+    ): String =
+        withCol {
+            val tempDir = File(requireContext().cacheDir, "ankidroid-azure-tts")
+            if (!tempDir.exists()) {
+                tempDir.mkdirs()
+            }
+            val uniqueFilename = nextAvailableMediaFilename(desiredFilename)
+            val tempFile = File(tempDir, uniqueFilename)
+            try {
+                tempFile.writeBytes(audioBytes)
+                media.addFile(tempFile)
+            } finally {
+                tempFile.delete()
+            }
+        }
+
+    private fun appendGeneratedTtsToField(
+        existingText: String,
+        generatedText: String,
+    ): String {
+        if (existingText.isBlank()) {
+            return generatedText
+        }
+        if (generatedText.isBlank()) {
+            return existingText
+        }
+        return if (existingText.last().isWhitespace()) {
+            existingText + generatedText
+        } else {
+            "$existingText\n$generatedText"
+        }
+    }
+
+    private fun Collection.nextAvailableMediaFilename(desiredFilename: String): String {
+        val dotIndex = desiredFilename.lastIndexOf('.')
+        val baseName =
+            if (dotIndex > 0) {
+                desiredFilename.substring(0, dotIndex)
+            } else {
+                desiredFilename
+            }
+        val extension =
+            if (dotIndex > 0) {
+                desiredFilename.substring(dotIndex)
+            } else {
+                ""
+            }
+        if (!media.have(desiredFilename)) {
+            return desiredFilename
+        }
+        var counter = 2
+        while (true) {
+            val candidate = "$baseName-$counter$extension"
+            if (!media.have(candidate)) {
+                return candidate
+            }
+            counter++
         }
     }
 

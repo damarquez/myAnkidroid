@@ -1055,6 +1055,7 @@ open class CardTemplateEditor :
             menu.findItem(R.id.action_insert_nav_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_audio_player_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_ai_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_tts_control).isVisible = isInsertFieldItemVisible
         }
 
         @NeedsTest("Notetype is restored to stock kind")
@@ -1114,6 +1115,11 @@ open class CardTemplateEditor :
                 R.id.action_insert_ai_control -> {
                     Timber.i("CardTemplateEditor:: Insert AI control button pressed")
                     insertField(AI_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_tts_control -> {
+                    Timber.i("CardTemplateEditor:: Insert TTS control button pressed")
+                    insertField(TTS_CONTROL_TEMPLATE)
                     return true
                 }
                 R.id.action_delete -> {
@@ -1655,6 +1661,33 @@ open class CardTemplateEditor :
                   {
                     // Generic fallback used when no field-specific entry matches.
                     "prompt": "\nRewrite the current field in a clearer way."
+                  }
+                ]
+                </script>
+
+                """.trimIndent()
+
+            private val TTS_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-tts-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this rule is only used for this field name.
+                    "field": "Examples",
+                    // The field whose text is parsed and rewritten.
+                    "sourceField": "Examples",
+                    // Optional: where to write the transformed text. Defaults to sourceField.
+                    "targetField": "Examples",
+                    // Available modes: "numberedMandarinExamples" | "simpleExample"
+                    "mode": "numberedMandarinExamples",
+                    // Field used as the base of generated filenames.
+                    "filenameField": "Front",
+                    // Optional text inserted before filenameField.
+                    "filenamePrefixText": "",
+                    // Optional text inserted after filenameField.
+                    "filenameSuffixText": "-",
+                    // Optional: truncate the generated filename base before suffixes/extensions.
+                    "maxFileNameLength": 15
                   }
                 ]
                 </script>
