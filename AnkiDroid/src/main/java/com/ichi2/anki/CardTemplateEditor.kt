@@ -1056,6 +1056,9 @@ open class CardTemplateEditor :
             menu.findItem(R.id.action_insert_audio_player_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_ai_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_tts_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_prop_search_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_actor_search_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_set_search_control).isVisible = isInsertFieldItemVisible
         }
 
         @NeedsTest("Notetype is restored to stock kind")
@@ -1120,6 +1123,21 @@ open class CardTemplateEditor :
                 R.id.action_insert_tts_control -> {
                     Timber.i("CardTemplateEditor:: Insert TTS control button pressed")
                     insertField(TTS_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_prop_search_control -> {
+                    Timber.i("CardTemplateEditor:: Insert prop search control button pressed")
+                    insertField(PROP_SEARCH_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_actor_search_control -> {
+                    Timber.i("CardTemplateEditor:: Insert actor search control button pressed")
+                    insertField(ACTOR_SEARCH_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_set_search_control -> {
+                    Timber.i("CardTemplateEditor:: Insert set search control button pressed")
+                    insertField(SET_SEARCH_CONTROL_TEMPLATE)
                     return true
                 }
                 R.id.action_delete -> {
@@ -1688,6 +1706,91 @@ open class CardTemplateEditor :
                     "filenameSuffixText": "-",
                     // Optional: truncate the generated filename base before suffixes/extensions.
                     "maxFileNameLength": 15
+                  }
+                ]
+                </script>
+
+                """.trimIndent()
+
+            private val PROP_SEARCH_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-prop-search-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this rule is only used for this field name.
+                    "field": "Reason",
+                    // Deck searched for prop notes.
+                    "deck": "MandarinMP::Meta-Props",
+                    // Field in the prop notes that contains the clozes.
+                    "sourceField": "Text",
+                    // Cloze number inserted back into the edited field.
+                    "insertCloze": 1,
+                    // Cloze number searched and shown as the label in the picker.
+                    "searchCloze": 2,
+                    // matchMode: "exact" | "partial"
+                    "matchMode": "exact",
+                    // applyMode: "replace" | "append"
+                    "applyMode": "replace",
+                    // Regex used to detect the active token around the cursor when nothing is selected.
+                    "tokenPattern": "[A-Za-z]+",
+                    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+                    "maxResults": 8
+                  }
+                ]
+                </script>
+
+                """.trimIndent()
+
+            private val ACTOR_SEARCH_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-actor-search-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this rule is only used for this field name.
+                    "field": "Reason",
+                    // Deck searched for actor notes.
+                    "deck": "MandarinMP::Meta-Actors",
+                    // Field in the actor notes that contains the clozes.
+                    "sourceField": "Text",
+                    // Cloze number searched from the typed token.
+                    "searchCloze": 1,
+                    // Cloze number appended in parentheses after the token.
+                    "labelCloze": 2,
+                    // matchMode: "exact" | "partial"
+                    "matchMode": "exact",
+                    // applyMode: "replace" | "append"
+                    "applyMode": "append",
+                    // Regex used to detect the active token around the cursor when nothing is selected.
+                    "tokenPattern": "[A-Za-z]+-?",
+                    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+                    "maxResults": 8
+                  }
+                ]
+                </script>
+
+                """.trimIndent()
+
+            private val SET_SEARCH_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-set-search-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this rule is only used for this field name.
+                    "field": "Reason",
+                    // Deck searched for set notes.
+                    "deck": "MandarinMP::Meta-Sets",
+                    // Field matched against the token under the cursor.
+                    "searchField": "Back",
+                    // Field inserted into the edited note after a choice is made.
+                    "labelField": "Front",
+                    // matchMode: "exact" | "partial"
+                    "matchMode": "exact",
+                    // applyMode: "replace" | "append"
+                    "applyMode": "append",
+                    // Regex used to detect the active token around the cursor when nothing is selected.
+                    "tokenPattern": "-?[\\p{L}\\p{M}]+",
+                    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+                    "maxResults": 8
                   }
                 ]
                 </script>

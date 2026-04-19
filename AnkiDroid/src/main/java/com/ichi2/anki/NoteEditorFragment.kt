@@ -31,6 +31,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.ActionMode
 import android.view.KeyEvent
@@ -43,6 +44,7 @@ import android.view.ViewGroup.MarginLayoutParams
 import android.view.WindowManager
 import android.widget.AdapterView
 import android.widget.AdapterView.OnItemSelectedListener
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
@@ -157,6 +159,19 @@ import com.ichi2.anki.pages.viewmodel.ImageOcclusionArgs
 import com.ichi2.anki.preferences.sharedPrefs
 import com.ichi2.anki.previewer.TemplatePreviewerArguments
 import com.ichi2.anki.previewer.TemplatePreviewerPage
+import com.ichi2.anki.props.SEARCH_APPLY_MODE_APPEND
+import com.ichi2.anki.props.SEARCH_MATCH_MODE_EXACT
+import com.ichi2.anki.props.SEARCH_MATCH_MODE_PARTIAL
+import com.ichi2.anki.props.TemplateActorSearchConfigException
+import com.ichi2.anki.props.TemplatePropSearchConfigException
+import com.ichi2.anki.props.TemplateSetSearchConfigException
+import com.ichi2.anki.props.parseClozeTokens
+import com.ichi2.anki.props.parseTemplateActorSearchRules
+import com.ichi2.anki.props.parseTemplatePropSearchRules
+import com.ichi2.anki.props.parseTemplateSetSearchRules
+import com.ichi2.anki.props.selectTemplateActorSearchRule
+import com.ichi2.anki.props.selectTemplatePropSearchRule
+import com.ichi2.anki.props.selectTemplateSetSearchRule
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import com.ichi2.anki.servicelayer.NoteService
 import com.ichi2.anki.servicelayer.NoteService.convertToHtmlNewline
@@ -180,6 +195,7 @@ import com.ichi2.imagecropper.ImageCropper
 import com.ichi2.imagecropper.ImageCropper.Companion.CROP_IMAGE_RESULT
 import com.ichi2.imagecropper.ImageCropperLauncher
 import com.ichi2.themes.Themes
+import com.ichi2.ui.CollectionMediaImageGetter
 import com.ichi2.utils.AndroidUiUtils.showSoftInput
 import com.ichi2.utils.ClipboardUtil
 import com.ichi2.utils.ClipboardUtil.MEDIA_MIME_TYPES
@@ -200,6 +216,7 @@ import com.ichi2.utils.neutralButton
 import com.ichi2.utils.openInputStreamSafe
 import com.ichi2.utils.positiveButton
 import com.ichi2.utils.show
+import com.ichi2.utils.stripHtml
 import com.ichi2.utils.title
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -2526,6 +2543,9 @@ class NoteEditorFragment :
         }
         addGenerateAzureTtsButton()
         addGenerateAiTextButton()
+        addSetSearchButton()
+        addActorSearchButton()
+        addPropSearchButton()
         addCleanAudioTagsButton()
         val buttons = toolbarButtons
         for (b in buttons) {
@@ -2579,6 +2599,36 @@ class NoteEditorFragment :
         val button =
             toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("AI")) {
                 generateAiTextInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addPropSearchButton() {
+        val label = getString(R.string.note_editor_prop_search)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Pr")) {
+                insertPropInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addActorSearchButton() {
+        val label = getString(R.string.note_editor_actor_search)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Ac")) {
+                insertActorInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addSetSearchButton() {
+        val label = getString(R.string.note_editor_set_search)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Se")) {
+                insertSetInCurrentField()
             }
         button.contentDescription = label
         button.setTooltipTextCompat(label)
@@ -2684,6 +2734,189 @@ class NoteEditorFragment :
             targetField.setText(generatedText)
             targetField.setSelection(generatedText.length)
             showSnackbar(getString(R.string.note_editor_ai_generate_applied, currentFieldName))
+        }
+    }
+
+    private fun insertPropInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_prop_search_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_prop_search_no_field))
+            return
+        }
+
+        val propSearchRules =
+            try {
+                parseTemplatePropSearchRules(editorNote!!.notetype)
+            } catch (e: TemplatePropSearchConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_prop_search_invalid_config))
+                return
+            }
+
+        val propSearchRule = selectTemplatePropSearchRule(propSearchRules, currentFieldName)
+        if (propSearchRule == null) {
+            showSnackbar(getString(R.string.note_editor_prop_search_no_matching_rule, currentFieldName))
+            return
+        }
+
+        val activeSearch =
+            try {
+                resolveActivePropSearch(
+                    text = currentField.text?.toString().orEmpty(),
+                    selectionStart = currentField.selectionStart,
+                    selectionEnd = currentField.selectionEnd,
+                    tokenPattern = propSearchRule.tokenPattern,
+                )
+            } catch (e: IllegalArgumentException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_prop_search_invalid_config))
+                return
+            }
+
+        if (activeSearch == null) {
+            showSnackbar(getString(R.string.note_editor_prop_search_no_query))
+            return
+        }
+
+        launchCatchingTask {
+            val lookup = loadPropSearchSuggestions(propSearchRule, activeSearch.query)
+            if (lookup.visibleSuggestions.isEmpty()) {
+                showSnackbar(getString(R.string.note_editor_prop_search_no_matches, activeSearch.query))
+                return@launchCatchingTask
+            }
+            showPropSearchDialog(
+                currentField = currentField,
+                currentFieldName = currentFieldName,
+                activeSearch = activeSearch,
+                applyMode = propSearchRule.applyMode,
+                lookup = lookup,
+            )
+        }
+    }
+
+    private fun insertActorInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_actor_search_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_actor_search_no_field))
+            return
+        }
+
+        val actorSearchRules =
+            try {
+                parseTemplateActorSearchRules(editorNote!!.notetype)
+            } catch (e: TemplateActorSearchConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_actor_search_invalid_config))
+                return
+            }
+
+        val actorSearchRule = selectTemplateActorSearchRule(actorSearchRules, currentFieldName)
+        if (actorSearchRule == null) {
+            showSnackbar(getString(R.string.note_editor_actor_search_no_matching_rule, currentFieldName))
+            return
+        }
+
+        val activeSearch =
+            try {
+                resolveActivePropSearch(
+                    text = currentField.text?.toString().orEmpty(),
+                    selectionStart = currentField.selectionStart,
+                    selectionEnd = currentField.selectionEnd,
+                    tokenPattern = actorSearchRule.tokenPattern,
+                )
+            } catch (e: IllegalArgumentException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_actor_search_invalid_config))
+                return
+            }
+
+        if (activeSearch == null) {
+            showSnackbar(getString(R.string.note_editor_actor_search_no_query))
+            return
+        }
+
+        launchCatchingTask {
+            val lookup = loadActorSearchSuggestions(actorSearchRule, activeSearch.query)
+            if (lookup.visibleSuggestions.isEmpty()) {
+                showSnackbar(getString(R.string.note_editor_actor_search_no_matches, activeSearch.query))
+                return@launchCatchingTask
+            }
+            showActorSearchDialog(
+                currentField = currentField,
+                currentFieldName = currentFieldName,
+                activeSearch = activeSearch,
+                applyMode = actorSearchRule.applyMode,
+                lookup = lookup,
+            )
+        }
+    }
+
+    private fun insertSetInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_set_search_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_set_search_no_field))
+            return
+        }
+
+        val setSearchRules =
+            try {
+                parseTemplateSetSearchRules(editorNote!!.notetype)
+            } catch (e: TemplateSetSearchConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_set_search_invalid_config))
+                return
+            }
+
+        val setSearchRule = selectTemplateSetSearchRule(setSearchRules, currentFieldName)
+        if (setSearchRule == null) {
+            showSnackbar(getString(R.string.note_editor_set_search_no_matching_rule, currentFieldName))
+            return
+        }
+
+        val activeSearch =
+            try {
+                resolveActivePropSearch(
+                    text = currentField.text?.toString().orEmpty(),
+                    selectionStart = currentField.selectionStart,
+                    selectionEnd = currentField.selectionEnd,
+                    tokenPattern = setSearchRule.tokenPattern,
+                )
+            } catch (e: IllegalArgumentException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_set_search_invalid_config))
+                return
+            }
+
+        if (activeSearch == null) {
+            showSnackbar(getString(R.string.note_editor_set_search_no_query))
+            return
+        }
+
+        launchCatchingTask {
+            val lookup = loadSetSearchSuggestions(setSearchRule, activeSearch.query)
+            if (lookup.visibleSuggestions.isEmpty()) {
+                showSnackbar(getString(R.string.note_editor_set_search_no_matches, activeSearch.query))
+                return@launchCatchingTask
+            }
+            showSetSearchDialog(
+                currentField = currentField,
+                currentFieldName = currentFieldName,
+                activeSearch = activeSearch,
+                applyMode = setSearchRule.applyMode,
+                lookup = lookup,
+            )
         }
     }
 
@@ -2840,6 +3073,404 @@ class NoteEditorFragment :
         }
     }
 
+    private suspend fun loadPropSearchSuggestions(
+        rule: com.ichi2.anki.props.TemplatePropSearchRule,
+        query: String,
+    ): PropSearchLookupResult =
+        withCol {
+            val noteIds =
+                runCatching { findNotes(buildPropDeckSearchQuery(rule, query)) }
+                    .getOrElse { findNotes(buildDeckOnlyQuery(rule.deck)) }
+
+            val allSuggestions =
+                noteIds
+                    .mapNotNull { noteId ->
+                        runCatching { getNote(noteId) }.getOrNull()?.let { note ->
+                            extractPropSearchSuggestion(note, rule)
+                        }
+                    }.filter { suggestion ->
+                        matchesConfiguredSearch(suggestion.label, query, rule.matchMode)
+                    }.distinctBy { "${it.insertValue}\u0000${it.label}" }
+                    .sortedWith(
+                        compareBy<PropSearchSuggestion>(
+                            { it.label.lowercase(Locale.ROOT) },
+                            { it.displaySymbol.lowercase(Locale.ROOT) },
+                        ),
+                    )
+
+            val hasOverflow = allSuggestions.size > rule.maxResults
+            val visibleSuggestions =
+                if (hasOverflow) {
+                    allSuggestions.take(rule.maxResults - 1)
+                } else {
+                    allSuggestions.take(rule.maxResults)
+                }
+
+            PropSearchLookupResult(
+                visibleSuggestions = visibleSuggestions,
+                hasOverflow = hasOverflow,
+            )
+        }
+
+    private suspend fun loadActorSearchSuggestions(
+        rule: com.ichi2.anki.props.TemplateActorSearchRule,
+        query: String,
+    ): PropSearchLookupResult =
+        withCol {
+            val noteIds =
+                runCatching { findNotes(buildActorDeckSearchQuery(rule, query)) }
+                    .getOrElse { findNotes(buildDeckOnlyQuery(rule.deck)) }
+
+            val allSuggestions =
+                noteIds
+                    .mapNotNull { noteId ->
+                        runCatching { getNote(noteId) }.getOrNull()?.let { note ->
+                            extractActorSearchSuggestion(note, rule)
+                        }
+                    }.filter { suggestion ->
+                        matchesConfiguredSearch(suggestion.insertValue, query, rule.matchMode)
+                    }.distinctBy { "${it.insertValue}\u0000${it.label}" }
+                    .sortedWith(
+                        compareBy<PropSearchSuggestion>(
+                            { it.label.lowercase(Locale.ROOT) },
+                            { it.insertValue.lowercase(Locale.ROOT) },
+                        ),
+                    )
+
+            val hasOverflow = allSuggestions.size > rule.maxResults
+            val visibleSuggestions =
+                if (hasOverflow) {
+                    allSuggestions.take(rule.maxResults - 1)
+                } else {
+                    allSuggestions.take(rule.maxResults)
+                }
+
+            PropSearchLookupResult(visibleSuggestions = visibleSuggestions, hasOverflow = hasOverflow)
+        }
+
+    private suspend fun loadSetSearchSuggestions(
+        rule: com.ichi2.anki.props.TemplateSetSearchRule,
+        query: String,
+    ): PropSearchLookupResult =
+        withCol {
+            val noteIds =
+                runCatching { findNotes(buildSetDeckSearchQuery(rule, query)) }
+                    .getOrElse { findNotes(buildDeckOnlyQuery(rule.deck)) }
+
+            val allSuggestions =
+                noteIds
+                    .mapNotNull { noteId ->
+                        runCatching { getNote(noteId) }.getOrNull()?.let { note ->
+                            extractSetSearchSuggestion(note, rule)
+                        }
+                    }.filter { suggestion ->
+                        matchesConfiguredSearch(suggestion.insertValue, query, rule.matchMode)
+                    }.distinctBy { "${it.insertValue}\u0000${it.label}" }
+                    .sortedWith(
+                        compareBy<PropSearchSuggestion>(
+                            { it.label.lowercase(Locale.ROOT) },
+                            { it.insertValue.lowercase(Locale.ROOT) },
+                        ),
+                    )
+
+            val hasOverflow = allSuggestions.size > rule.maxResults
+            val visibleSuggestions =
+                if (hasOverflow) {
+                    allSuggestions.take(rule.maxResults - 1)
+                } else {
+                    allSuggestions.take(rule.maxResults)
+                }
+
+            PropSearchLookupResult(visibleSuggestions = visibleSuggestions, hasOverflow = hasOverflow)
+        }
+
+    private fun extractPropSearchSuggestion(
+        note: Note,
+        rule: com.ichi2.anki.props.TemplatePropSearchRule,
+    ): PropSearchSuggestion? {
+        if (!note.contains(rule.sourceField)) {
+            return null
+        }
+        val clozes = parseClozeTokens(note.getItem(rule.sourceField))
+        val insertValue =
+            clozes
+                .firstOrNull { it.ordinal == rule.insertCloze }
+                ?.text
+                .orEmpty()
+                .trim()
+        val labelRaw =
+            clozes
+                .firstOrNull { it.ordinal == rule.searchCloze }
+                ?.text
+                .orEmpty()
+                .trim()
+        val label = stripHtml(labelRaw).trim()
+        if (insertValue.isBlank() || label.isBlank()) {
+            return null
+        }
+        return PropSearchSuggestion(
+            insertValue = insertValue,
+            displaySymbol = stripHtml(insertValue).trim(),
+            label = label,
+        )
+    }
+
+    private fun extractActorSearchSuggestion(
+        note: Note,
+        rule: com.ichi2.anki.props.TemplateActorSearchRule,
+    ): PropSearchSuggestion? {
+        if (!note.contains(rule.sourceField)) {
+            return null
+        }
+        val clozes = parseClozeTokens(note.getItem(rule.sourceField))
+        val searchValue =
+            clozes
+                .firstOrNull { it.ordinal == rule.searchCloze }
+                ?.text
+                .orEmpty()
+                .trim()
+        val labelRaw =
+            clozes
+                .firstOrNull { it.ordinal == rule.labelCloze }
+                ?.text
+                .orEmpty()
+                .trim()
+        val label = stripHtml(labelRaw).trim()
+        if (searchValue.isBlank() || label.isBlank()) {
+            return null
+        }
+        return PropSearchSuggestion(
+            insertValue = searchValue,
+            displaySymbol = searchValue,
+            label = label,
+        )
+    }
+
+    private fun extractSetSearchSuggestion(
+        note: Note,
+        rule: com.ichi2.anki.props.TemplateSetSearchRule,
+    ): PropSearchSuggestion? {
+        if (!note.contains(rule.searchField) || !note.contains(rule.labelField)) {
+            return null
+        }
+        val searchValue = stripHtml(note.getItem(rule.searchField)).trim()
+        val label = stripHtml(note.getItem(rule.labelField)).trim()
+        if (searchValue.isBlank() || label.isBlank()) {
+            return null
+        }
+        return PropSearchSuggestion(
+            insertValue = searchValue,
+            displaySymbol = searchValue,
+            label = label,
+        )
+    }
+
+    private fun buildPropDeckSearchQuery(
+        rule: com.ichi2.anki.props.TemplatePropSearchRule,
+        query: String,
+    ): String =
+        listOf(
+            buildQuotedSearchTerm("deck:${rule.deck}"),
+            buildQuotedSearchTerm("${rule.sourceField}:*${query.trim()}*"),
+        ).joinToString(separator = " ")
+
+    private fun buildActorDeckSearchQuery(
+        rule: com.ichi2.anki.props.TemplateActorSearchRule,
+        query: String,
+    ): String =
+        listOf(
+            buildQuotedSearchTerm("deck:${rule.deck}"),
+            buildQuotedSearchTerm("${rule.sourceField}:*${query.trim()}*"),
+        ).joinToString(separator = " ")
+
+    private fun buildSetDeckSearchQuery(
+        rule: com.ichi2.anki.props.TemplateSetSearchRule,
+        query: String,
+    ): String =
+        listOf(
+            buildQuotedSearchTerm("deck:${rule.deck}"),
+            buildQuotedSearchTerm("${rule.searchField}:*${query.trim()}*"),
+        ).joinToString(separator = " ")
+
+    private fun buildDeckOnlyQuery(deckName: String): String = buildQuotedSearchTerm("deck:$deckName")
+
+    private fun buildQuotedSearchTerm(value: String): String = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+    private fun matchesConfiguredSearch(
+        candidate: String,
+        query: String,
+        matchMode: String,
+    ): Boolean {
+        val normalizedCandidate = candidate.trim()
+        val normalizedQuery = query.trim()
+        return when (matchMode.lowercase(Locale.ROOT)) {
+            SEARCH_MATCH_MODE_PARTIAL -> normalizedCandidate.contains(normalizedQuery, ignoreCase = true)
+            else -> normalizedCandidate.equals(normalizedQuery, ignoreCase = true)
+        }
+    }
+
+    private fun resolveActivePropSearch(
+        text: String,
+        selectionStart: Int,
+        selectionEnd: Int,
+        tokenPattern: String,
+    ): ActivePropSearch? {
+        val boundedStart = selectionStart.coerceIn(0, text.length)
+        val boundedEnd = selectionEnd.coerceIn(0, text.length)
+        val rangeStart = min(boundedStart, boundedEnd)
+        val rangeEnd = max(boundedStart, boundedEnd)
+        if (rangeStart != rangeEnd) {
+            val selectedText = text.substring(rangeStart, rangeEnd)
+            val trimmed = selectedText.trim()
+            if (trimmed.isNotBlank()) {
+                return ActivePropSearch(query = trimmed, start = rangeStart, end = rangeEnd)
+            }
+        }
+
+        val tokenRegex =
+            try {
+                Regex(tokenPattern)
+            } catch (e: Exception) {
+                throw TemplatePropSearchConfigException("Invalid tokenPattern in ankidroid-prop-search-config.", e)
+            }
+        val cursor = rangeEnd
+        val matches = tokenRegex.findAll(text).toList()
+        val activeMatch =
+            matches.firstOrNull { cursor in it.range.first until (it.range.last + 1) }
+                ?: matches.lastOrNull { (it.range.last + 1) <= cursor }
+                ?: return null
+
+        return ActivePropSearch(
+            query = activeMatch.value,
+            start = activeMatch.range.first,
+            end = activeMatch.range.last + 1,
+        )
+    }
+
+    private fun showPropSearchDialog(
+        currentField: FieldEditText,
+        currentFieldName: String,
+        activeSearch: ActivePropSearch,
+        applyMode: String,
+        lookup: PropSearchLookupResult,
+    ) {
+        val mediaDir = CollectionHelper.getMediaDirectory(requireContext())
+        val entries =
+            buildList {
+                lookup.visibleSuggestions.forEach { add(PropSearchDialogEntry(suggestion = it)) }
+                if (lookup.hasOverflow) {
+                    add(PropSearchDialogEntry(suggestion = null, isOverflow = true))
+                }
+            }
+        val adapter = PropSearchSuggestionAdapter(requireContext(), entries, mediaDir)
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.note_editor_prop_search_pick_title, activeSearch.query))
+            .setAdapter(adapter) { _, which ->
+                val entry = entries.getOrNull(which) ?: return@setAdapter
+                if (entry.isOverflow || entry.suggestion == null) {
+                    showSnackbar(getString(R.string.note_editor_prop_search_more_results))
+                    return@setAdapter
+                }
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.insertValue, applyMode)
+                showSnackbar(getString(R.string.note_editor_prop_search_applied, currentFieldName))
+            }.show()
+    }
+
+    private fun showActorSearchDialog(
+        currentField: FieldEditText,
+        currentFieldName: String,
+        activeSearch: ActivePropSearch,
+        applyMode: String,
+        lookup: PropSearchLookupResult,
+    ) {
+        val entries =
+            buildList {
+                lookup.visibleSuggestions.forEach { add(PropSearchDialogEntry(suggestion = it)) }
+                if (lookup.hasOverflow) {
+                    add(PropSearchDialogEntry(suggestion = null, isOverflow = true))
+                }
+            }
+        val adapter = PropSearchSuggestionAdapter(requireContext(), entries, CollectionHelper.getMediaDirectory(requireContext()))
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.note_editor_actor_search_pick_title, activeSearch.query))
+            .setAdapter(adapter) { _, which ->
+                val entry = entries.getOrNull(which) ?: return@setAdapter
+                if (entry.isOverflow || entry.suggestion == null) {
+                    showSnackbar(getString(R.string.note_editor_actor_search_more_results))
+                    return@setAdapter
+                }
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.label, applyMode)
+                showSnackbar(getString(R.string.note_editor_actor_search_applied, currentFieldName))
+            }.show()
+    }
+
+    private fun showSetSearchDialog(
+        currentField: FieldEditText,
+        currentFieldName: String,
+        activeSearch: ActivePropSearch,
+        applyMode: String,
+        lookup: PropSearchLookupResult,
+    ) {
+        val entries =
+            buildList {
+                lookup.visibleSuggestions.forEach { add(PropSearchDialogEntry(suggestion = it)) }
+                if (lookup.hasOverflow) {
+                    add(PropSearchDialogEntry(suggestion = null, isOverflow = true))
+                }
+            }
+        val adapter = PropSearchSuggestionAdapter(requireContext(), entries, CollectionHelper.getMediaDirectory(requireContext()))
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.note_editor_set_search_pick_title, activeSearch.query))
+            .setAdapter(adapter) { _, which ->
+                val entry = entries.getOrNull(which) ?: return@setAdapter
+                if (entry.isOverflow || entry.suggestion == null) {
+                    showSnackbar(getString(R.string.note_editor_set_search_more_results))
+                    return@setAdapter
+                }
+                applyReasonSearchSuggestion(currentField, activeSearch, entry.suggestion.label, applyMode)
+                showSnackbar(getString(R.string.note_editor_set_search_applied, currentFieldName))
+            }.show()
+    }
+
+    private fun applyReasonSearchSuggestion(
+        field: FieldEditText,
+        activeSearch: ActivePropSearch,
+        value: String,
+        applyMode: String,
+    ) {
+        val editable = field.text ?: return
+        val replacement =
+            if (applyMode.lowercase(Locale.ROOT) == SEARCH_APPLY_MODE_APPEND) {
+                "${activeSearch.query} ($value)"
+            } else {
+                value
+            }
+        val replaceEnd =
+            if (applyMode.lowercase(Locale.ROOT) == SEARCH_APPLY_MODE_APPEND) {
+                findImmediateParenthesizedAnnotationEnd(editable.toString(), activeSearch.end)
+            } else {
+                activeSearch.end
+            }
+        editable.replace(activeSearch.start, replaceEnd, replacement)
+        field.requestFocus()
+        field.setSelection((activeSearch.start + replacement.length).coerceAtMost(editable.length))
+    }
+
+    private fun findImmediateParenthesizedAnnotationEnd(
+        text: String,
+        tokenEnd: Int,
+    ): Int {
+        var cursor = tokenEnd
+        while (cursor < text.length && text[cursor].isWhitespace()) {
+            cursor++
+        }
+        if (cursor >= text.length || text[cursor] != '(') {
+            return tokenEnd
+        }
+        val closing = text.indexOf(')', startIndex = cursor + 1)
+        return if (closing == -1) tokenEnd else closing + 1
+    }
+
     private fun Collection.nextAvailableMediaFilename(desiredFilename: String): String {
         val dotIndex = desiredFilename.lastIndexOf('.')
         val baseName =
@@ -2879,6 +3510,66 @@ class NoteEditorFragment :
     private fun saveToolbarButtons(buttons: ArrayList<CustomToolbarButton>) {
         this.sharedPrefs().edit {
             putStringSet(PREF_NOTE_EDITOR_CUSTOM_BUTTONS, CustomToolbarButton.toStringSet(buttons))
+        }
+    }
+
+    private data class ActivePropSearch(
+        val query: String,
+        val start: Int,
+        val end: Int,
+    )
+
+    private data class PropSearchSuggestion(
+        val insertValue: String,
+        val displaySymbol: String,
+        val label: String,
+    )
+
+    private data class PropSearchLookupResult(
+        val visibleSuggestions: List<PropSearchSuggestion>,
+        val hasOverflow: Boolean,
+    )
+
+    private data class PropSearchDialogEntry(
+        val suggestion: PropSearchSuggestion?,
+        val isOverflow: Boolean = false,
+    )
+
+    private inner class PropSearchSuggestionAdapter(
+        context: Context,
+        private val entries: List<PropSearchDialogEntry>,
+        private val mediaDir: File,
+    ) : ArrayAdapter<PropSearchDialogEntry>(context, android.R.layout.simple_list_item_1, entries) {
+        override fun getView(
+            position: Int,
+            convertView: View?,
+            parent: android.view.ViewGroup,
+        ): View {
+            val view = super.getView(position, convertView, parent) as TextView
+            val entry = entries[position]
+            view.maxLines = 2
+            view.ellipsize = TextUtils.TruncateAt.END
+            view.text =
+                if (entry.isOverflow || entry.suggestion == null) {
+                    "..."
+                } else {
+                    buildPropSearchDisplayText(view, entry.suggestion)
+                }
+            return view
+        }
+
+        private fun buildPropSearchDisplayText(
+            view: TextView,
+            suggestion: PropSearchSuggestion,
+        ) = if (suggestion.insertValue.contains('<') && suggestion.insertValue.contains('>')) {
+            HtmlCompat.fromHtml(
+                "${suggestion.insertValue} ${TextUtils.htmlEncode(suggestion.label)}",
+                HtmlCompat.FROM_HTML_MODE_LEGACY,
+                CollectionMediaImageGetter(requireContext(), view, mediaDir, viewLifecycleOwner.lifecycleScope),
+                null,
+            )
+        } else {
+            "${suggestion.displaySymbol.ifBlank { suggestion.insertValue }} ${suggestion.label}"
         }
     }
 

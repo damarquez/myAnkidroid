@@ -142,6 +142,9 @@
     <string name="card_template_editor_insert_audio_player_control" maxLength="28">Insert player control</string>
     <string name="card_template_editor_insert_ai_control" maxLength="28">Insert AI control</string>
     <string name="card_template_editor_insert_tts_control" maxLength="28">Insert TTS control</string>
+    <string name="card_template_editor_insert_prop_search_control" maxLength="28">Insert prop search control</string>
+    <string name="card_template_editor_insert_actor_search_control" maxLength="28">Insert actor search control</string>
+    <string name="card_template_editor_insert_set_search_control" maxLength="28">Insert set search control</string>
     <string name="card_template_editor_select_field">Select field</string>
     <string name="note_editor_tts_generate">Generate Azure audio</string>
     <string name="note_editor_tts_no_field">Tap inside a field first</string>
@@ -168,6 +171,33 @@
     <string name="note_editor_clean_audio_tags_no_field">Tap inside a field first</string>
     <string name="note_editor_clean_audio_tags_no_matches">No duplicated audio tags found in the current field</string>
     <string name="note_editor_clean_audio_tags_applied">Duplicated audio tags cleaned in the current field</string>
+    <string name="note_editor_prop_search">Insert prop from Meta-Props</string>
+    <string name="note_editor_prop_search_no_field">Tap inside a field first</string>
+    <string name="note_editor_prop_search_invalid_config">Invalid ankidroid-prop-search-config in the card template</string>
+    <string name="note_editor_prop_search_no_matching_rule">No prop search rule matched the current field: %1$s</string>
+    <string name="note_editor_prop_search_no_query">Select text or place the cursor on a word first</string>
+    <string name="note_editor_prop_search_no_matches">No matching props were found for “%1$s”</string>
+    <string name="note_editor_prop_search_more_results">More matches exist. Be more specific.</string>
+    <string name="note_editor_prop_search_pick_title">Pick a prop for “%1$s”</string>
+    <string name="note_editor_prop_search_applied">Inserted a prop into %1$s</string>
+    <string name="note_editor_actor_search">Insert actor from Meta-Actors</string>
+    <string name="note_editor_actor_search_no_field">Tap inside a field first</string>
+    <string name="note_editor_actor_search_invalid_config">Invalid ankidroid-actor-search-config in the card template</string>
+    <string name="note_editor_actor_search_no_matching_rule">No actor search rule matched the current field: %1$s</string>
+    <string name="note_editor_actor_search_no_query">Select text or place the cursor on an actor token first</string>
+    <string name="note_editor_actor_search_no_matches">No matching actors were found for “%1$s”</string>
+    <string name="note_editor_actor_search_more_results">More matches exist. Be more specific.</string>
+    <string name="note_editor_actor_search_pick_title">Pick an actor for “%1$s”</string>
+    <string name="note_editor_actor_search_applied">Inserted an actor into %1$s</string>
+    <string name="note_editor_set_search">Insert set from Meta-Sets</string>
+    <string name="note_editor_set_search_no_field">Tap inside a field first</string>
+    <string name="note_editor_set_search_invalid_config">Invalid ankidroid-set-search-config in the card template</string>
+    <string name="note_editor_set_search_no_matching_rule">No set search rule matched the current field: %1$s</string>
+    <string name="note_editor_set_search_no_query">Select text or place the cursor on a set token first</string>
+    <string name="note_editor_set_search_no_matches">No matching sets were found for “%1$s”</string>
+    <string name="note_editor_set_search_more_results">More matches exist. Be more specific.</string>
+    <string name="note_editor_set_search_pick_title">Pick a set for “%1$s”</string>
+    <string name="note_editor_set_search_applied">Inserted a set into %1$s</string>
     <string name="card_template_editor_cant_delete">At least one card type is required</string>
     <plurals name="card_template_editor_confirm_add">
         <item quantity="one">This will create %1$d card. Proceed?</item>

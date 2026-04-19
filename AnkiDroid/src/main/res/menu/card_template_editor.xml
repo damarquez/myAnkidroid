@@ -62,6 +62,18 @@
         android:title="@string/card_template_editor_insert_tts_control"
         ankidroid:showAsAction="never"/>
     <item
+        android:id="@+id/action_insert_prop_search_control"
+        android:title="@string/card_template_editor_insert_prop_search_control"
+        ankidroid:showAsAction="never"/>
+    <item
+        android:id="@+id/action_insert_actor_search_control"
+        android:title="@string/card_template_editor_insert_actor_search_control"
+        ankidroid:showAsAction="never"/>
+    <item
+        android:id="@+id/action_insert_set_search_control"
+        android:title="@string/card_template_editor_insert_set_search_control"
+        ankidroid:showAsAction="never"/>
+    <item
         android:id="@+id/action_copy_as_markdown"
         android:title="@string/copy_as_markdown"
         ankidroid:showAsAction="never" />
