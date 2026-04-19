@@ -44,6 +44,7 @@
     <string name="pref_cat_advanced" maxLength="41">Advanced</string>
     <string name="pref_cat_workarounds" maxLength="41">Workarounds</string>
     <string name="pref_cat_plugins" maxLength="41">Plugins</string>
+    <string name="pref_cat_ai" maxLength="41">AI</string>
     <string name="pref_cat_editing" maxLength="41">Editing</string>
 
     <!-- preferences.xml entries-->
@@ -65,6 +66,16 @@
     <string name="full_screen_off">Off</string>
     <string name="full_screen_system">Hide the system bars</string>
     <string name="full_screen_complete">Hide the system bars and answer buttons</string>
+    <string-array name="ai_provider_labels">
+        <item>@string/ai_provider_openai</item>
+        <item>@string/ai_provider_anthropic</item>
+        <item>@string/ai_provider_openrouter</item>
+    </string-array>
+    <string-array name="ai_provider_values">
+        <item>openai</item>
+        <item>anthropic</item>
+        <item>openrouter</item>
+    </string-array>
     <string name="answer_buttons_position" maxLength="41">Answer buttons position</string>
     <string-array name="answer_buttons_position_labels">
         <item>Top</item>
@@ -168,6 +179,15 @@
     <string name="pref_keep_screen_on_summ">Disable screen timeout</string>
     <string name="enable_api_title" maxLength="41">Enable AnkiDroid API</string>
     <string name="enable_api_summary">Let other apps connect to AnkiDroid and read / write data without your intervention</string>
+    <string name="pref_ai_provider_title" maxLength="41">AI provider</string>
+    <string name="pref_ai_provider_summary">Provider used by note-editor AI generation</string>
+    <string name="pref_ai_api_key_title" maxLength="41">AI API key</string>
+    <string name="pref_ai_api_key_summary">Secret key used for note-editor AI generation</string>
+    <string name="pref_ai_api_key_not_set">Not set</string>
+    <string name="pref_ai_api_key_configured">Configured</string>
+    <string name="pref_ai_model_title" maxLength="41">AI model</string>
+    <string name="pref_ai_model_summary">Model name used for note-editor AI generation</string>
+    <string name="pref_ai_model_not_set">Not set</string>
     <string name="custom_buttons" maxLength="41">App bar buttons</string>
     <string name="custom_buttons_summary">Customize which actions appear in the app bar</string>
     <string name="custom_buttons_setting_always_show">Always show</string>

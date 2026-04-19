@@ -54,6 +54,10 @@
         android:title="@string/card_template_editor_insert_audio_player_control"
         ankidroid:showAsAction="never"/>
     <item
+        android:id="@+id/action_insert_ai_control"
+        android:title="@string/card_template_editor_insert_ai_control"
+        ankidroid:showAsAction="never"/>
+    <item
         android:id="@+id/action_copy_as_markdown"
         android:title="@string/copy_as_markdown"
         ankidroid:showAsAction="never" />

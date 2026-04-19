@@ -36,6 +36,11 @@
     <string name="day_theme_light">Light</string>
     <string name="day_theme_plain">Plain</string>
 
+    <!-- ai_provider_labels -->
+    <string name="ai_provider_openai">OpenAI</string>
+    <string name="ai_provider_anthropic">Anthropic</string>
+    <string name="ai_provider_openrouter">OpenRouter</string>
+
     <!-- night_theme_labels -->
     <string name="night_theme_black">Black</string>
     <string name="night_theme_dark">Dark</string>

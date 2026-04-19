@@ -20,6 +20,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AlertDialog
 import androidx.preference.EditTextPreference
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.SwitchPreferenceCompat
 import com.ichi2.anki.CollectionHelper
@@ -27,6 +28,8 @@ import com.ichi2.anki.CollectionManager
 import com.ichi2.anki.DeckPicker
 import com.ichi2.anki.MetaDB
 import com.ichi2.anki.R
+import com.ichi2.anki.ai.AiProvider
+import com.ichi2.anki.ai.NoteEditorAiPreferences
 import com.ichi2.anki.compat.CompatHelper
 import com.ichi2.anki.exception.StorageAccessException
 import com.ichi2.anki.launchCatchingTask
@@ -46,6 +49,7 @@ class AdvancedSettingsFragment : SettingsFragment() {
 
     override fun initSubscreen() {
         removeUnnecessaryAdvancedPrefs()
+        NoteEditorAiPreferences(requireContext()).ensureDefaults()
 
         // Check that input is valid before committing change in the collection path
         requirePreference<EditTextPreference>(CollectionHelper.PREF_COLLECTION_PATH).apply {
@@ -116,6 +120,27 @@ class AdvancedSettingsFragment : SettingsFragment() {
         requirePreference<Preference>(R.string.thirdparty_apps_key).setOnPreferenceClickListener {
             requireContext().openUrl(R.string.link_third_party_api_apps)
             false
+        }
+
+        requirePreference<ListPreference>(R.string.pref_ai_provider_key).summaryProvider =
+            Preference.SummaryProvider<ListPreference> { preference ->
+                preference.entry ?: getString(R.string.pref__etc__summary__error)
+            }
+        requirePreference<EditTextPreference>(R.string.pref_ai_model_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                preference.text?.takeIf { it.isNotBlank() } ?: getString(R.string.pref_ai_model_not_set)
+            }
+        requirePreference<EditTextPreference>(R.string.pref_ai_api_key_key).summaryProvider =
+            Preference.SummaryProvider<EditTextPreference> { preference ->
+                when {
+                    preference.text.isNullOrBlank() -> getString(R.string.pref_ai_api_key_not_set)
+                    else -> getString(R.string.pref_ai_api_key_configured)
+                }
+            }
+        requirePreference<ListPreference>(R.string.pref_ai_provider_key).apply {
+            if (value.isNullOrEmpty()) {
+                value = AiProvider.OpenAI.preferenceValue
+            }
         }
 
         // Enable API

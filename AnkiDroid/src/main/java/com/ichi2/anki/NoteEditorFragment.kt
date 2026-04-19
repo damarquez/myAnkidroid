@@ -86,6 +86,12 @@ import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.NoteEditorFragment.Companion.NoteEditorCaller.Companion.fromValue
 import com.ichi2.anki.OnContextAndLongClickListener.Companion.setOnContextAndLongClickListener
+import com.ichi2.anki.ai.NoteEditorAiPreferences
+import com.ichi2.anki.ai.NoteEditorAiTextGenerator
+import com.ichi2.anki.ai.TemplateAiConfigException
+import com.ichi2.anki.ai.buildTemplateAiPrompt
+import com.ichi2.anki.ai.parseTemplateAiPromptRules
+import com.ichi2.anki.ai.selectTemplateAiPromptRule
 import com.ichi2.anki.android.input.ShortcutGroup
 import com.ichi2.anki.android.input.ShortcutGroupProvider
 import com.ichi2.anki.android.input.shortcut
@@ -288,6 +294,7 @@ class NoteEditorFragment :
     private var sourceText: Array<String?>? = null
     private val fieldState = FieldState.fromEditor(this)
     private lateinit var toolbar: Toolbar
+    private val aiTextGenerator by lazy { NoteEditorAiTextGenerator() }
 
     // Use the same HTML if the same image is pasted multiple times.
     private var pastedImageCache: HashMap<String, String> = HashMap()
@@ -2509,6 +2516,7 @@ class NoteEditorFragment :
                 type = AddClozeType.SAME_NUMBER,
             )
         }
+        addGenerateAiTextButton()
         addCleanAudioTagsButton()
         val buttons = toolbarButtons
         for (b in buttons) {
@@ -2557,6 +2565,16 @@ class NoteEditorFragment :
         button.setTooltipTextCompat(label)
     }
 
+    private fun addGenerateAiTextButton() {
+        val label = getString(R.string.note_editor_ai_generate)
+        val button =
+            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("AI")) {
+                generateAiTextInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
     private fun cleanAudioTagsInCurrentField() {
         val currentField = requireActivity().currentFocus as? FieldEditText
         if (currentField == null) {
@@ -2595,6 +2613,70 @@ class NoteEditorFragment :
             }
 
         return collapseMatchingPairs(collapseMatchingPairs(text, plainPattern), starredPattern)
+    }
+
+    private fun generateAiTextInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_ai_generate_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_ai_generate_no_field))
+            return
+        }
+
+        val serviceSettings = NoteEditorAiPreferences(requireContext()).load()
+        serviceSettings.missingConfigurationMessage(requireContext())?.let {
+            showSnackbar(it)
+            return
+        }
+
+        val promptRules =
+            try {
+                parseTemplateAiPromptRules(editorNote!!.notetype)
+            } catch (e: TemplateAiConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_ai_generate_invalid_config))
+                return
+            }
+
+        val promptRule = selectTemplateAiPromptRule(promptRules, currentFieldName)
+        if (promptRule == null) {
+            showSnackbar(getString(R.string.note_editor_ai_generate_no_matching_prompt, currentFieldName))
+            return
+        }
+
+        val promptText =
+            try {
+                buildTemplateAiPrompt(promptRule, currentFieldValuesByName())
+            } catch (e: TemplateAiConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_ai_generate_invalid_config))
+                return
+            }
+
+        launchCatchingTask {
+            val generatedText =
+                withProgress(R.string.note_editor_ai_generate_in_progress) {
+                    aiTextGenerator.generateText(serviceSettings, promptText)
+                }
+            val targetField = editFields?.getOrNull(currentField.ord) ?: currentField
+            targetField.setText(generatedText)
+            targetField.setSelection(generatedText.length)
+            showSnackbar(getString(R.string.note_editor_ai_generate_applied, currentFieldName))
+        }
+    }
+
+    private fun currentFieldName(ord: Int): String? = editorNote?.notetype?.fieldsNames?.getOrNull(ord)
+
+    private fun currentFieldValuesByName(): Map<String, String> {
+        val fieldNames = editorNote?.notetype?.fieldsNames.orEmpty()
+        return buildMap {
+            for (index in fieldNames.indices) {
+                put(fieldNames[index], getCurrentFieldText(index))
+            }
+        }
     }
 
     private val toolbarButtons: ArrayList<CustomToolbarButton>

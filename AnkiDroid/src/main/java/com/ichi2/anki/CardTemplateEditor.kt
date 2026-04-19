@@ -1053,6 +1053,8 @@ open class CardTemplateEditor :
             val isInsertFieldItemVisible = currentEditorViewId != R.id.styling_edit
             menu.findItem(R.id.action_insert_field).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_nav_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_audio_player_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_ai_control).isVisible = isInsertFieldItemVisible
         }
 
         @NeedsTest("Notetype is restored to stock kind")
@@ -1107,6 +1109,11 @@ open class CardTemplateEditor :
                 R.id.action_insert_audio_player_control -> {
                     Timber.i("CardTemplateEditor:: Insert audio player control button pressed")
                     insertField(AUDIO_PLAYER_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_ai_control -> {
+                    Timber.i("CardTemplateEditor:: Insert AI control button pressed")
+                    insertField(AI_CONTROL_TEMPLATE)
                     return true
                 }
                 R.id.action_delete -> {
@@ -1623,6 +1630,33 @@ open class CardTemplateEditor :
                   // showStopAllButton: shows a global Stop button for any audio playing on the card.
                   "showStopAllButton": false
                 }
+                </script>
+
+                """.trimIndent()
+
+            private val AI_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-ai-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this prompt is only used for this field name.
+                    "field": "Examples",
+                    // Required: the main instruction sent to the AI service.
+                    "prompt": "\nGenerate 2 short example sentences for the current note.",
+                    // Optional: fixed text placed before the prompt.
+                    "prefixText": "Front: ",
+                    // Optional: field value placed before the prompt.
+                    "prefixField": "Front",
+                    // Optional: fixed text placed after the prompt.
+                    "suffixText": "\nBack: ",
+                    // Optional: field value placed after the prompt.
+                    "suffixField": "Back"
+                  },
+                  {
+                    // Generic fallback used when no field-specific entry matches.
+                    "prompt": "\nRewrite the current field in a clearer way."
+                  }
+                ]
                 </script>
 
                 """.trimIndent()

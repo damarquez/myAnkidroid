@@ -108,6 +108,25 @@
                 android:title="@string/thirdparty_apps_title">
             </Preference>
         </PreferenceCategory>
+        <PreferenceCategory
+            android:key="@string/pref_cat_ai_key"
+            android:title="@string/pref_cat_ai" >
+            <ListPreference
+                android:defaultValue="openai"
+                android:entries="@array/ai_provider_labels"
+                android:entryValues="@array/ai_provider_values"
+                android:key="@string/pref_ai_provider_key"
+                android:summary="@string/pref_ai_provider_summary"
+                android:title="@string/pref_ai_provider_title" />
+            <EditTextPreference
+                android:key="@string/pref_ai_api_key_key"
+                android:summary="@string/pref_ai_api_key_summary"
+                android:title="@string/pref_ai_api_key_title" />
+            <EditTextPreference
+                android:key="@string/pref_ai_model_key"
+                android:summary="@string/pref_ai_model_summary"
+                android:title="@string/pref_ai_model_title" />
+        </PreferenceCategory>
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:icon="@drawable/ic_warning"
