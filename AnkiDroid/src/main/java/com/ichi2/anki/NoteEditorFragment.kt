@@ -27,6 +27,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -2585,10 +2586,18 @@ class NoteEditorFragment :
         addButton.setTooltipTextCompat(resources.getString(R.string.add_toolbar_item))
     }
 
+    private fun loadHelperBarIcon(
+        @DrawableRes resId: Int,
+    ): Drawable? {
+        val drawable = ResourcesCompat.getDrawable(resources, resId, null)
+        drawable?.setTint(MaterialColors.getColor(requireContext(), R.attr.toolbarIconColor, 0))
+        return drawable
+    }
+
     private fun addCleanAudioTagsButton() {
         val label = getString(R.string.note_editor_clean_audio_tags)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Au")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_build_black_24)) {
                 cleanAudioTagsInCurrentField()
             }
         button.contentDescription = label
@@ -2598,7 +2607,7 @@ class NoteEditorFragment :
     private fun addGenerateAiTextButton() {
         val label = getString(R.string.note_editor_ai_generate)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("AI")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_auto_awesome_black_24)) {
                 generateAiTextInCurrentField()
             }
         button.contentDescription = label
@@ -2608,7 +2617,7 @@ class NoteEditorFragment :
     private fun addPropSearchButton() {
         val label = getString(R.string.note_editor_prop_search)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Pr")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_inventory_2_black_24)) {
                 insertPropInCurrentField()
             }
         button.contentDescription = label
@@ -2618,7 +2627,7 @@ class NoteEditorFragment :
     private fun addActorSearchButton() {
         val label = getString(R.string.note_editor_actor_search)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Ac")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_theater_comedy_black_24)) {
                 insertActorInCurrentField()
             }
         button.contentDescription = label
@@ -2628,7 +2637,7 @@ class NoteEditorFragment :
     private fun addSetSearchButton() {
         val label = getString(R.string.note_editor_set_search)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("Se")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_landscape_black_24)) {
                 insertSetInCurrentField()
             }
         button.contentDescription = label
@@ -2638,7 +2647,7 @@ class NoteEditorFragment :
     private fun addGenerateAzureTtsButton() {
         val label = getString(R.string.note_editor_tts_generate)
         val button =
-            toolbar.insertItem(View.generateViewId(), toolbar.createDrawableForString("TTS")) {
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_volume_up_black_24)) {
                 generateAzureTtsInCurrentField()
             }
         button.contentDescription = label
