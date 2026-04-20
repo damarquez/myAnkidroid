@@ -32,6 +32,7 @@ import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
 import com.ichi2.anki.multimedia.getAvTag
 import com.ichi2.anki.multimedia.replaceAvRefsWithPlayButtons
+import com.ichi2.anki.notelinks.expandNoteLinksToHtml
 import com.ichi2.anki.pages.AnkiServer
 import com.ichi2.anki.pages.PostRequestHandler
 import com.ichi2.anki.pages.PostRequestUri
@@ -167,7 +168,7 @@ abstract class CardViewerViewModel(
     @VisibleForTesting
     suspend fun prepareCardTextForDisplay(text: String): String =
         replaceAvRefsWithPlayButtons(
-            text = withCol { media.escapeMediaFilenames(text) },
+            text = expandNoteLinksToHtml(withCol { media.escapeMediaFilenames(text) }),
             renderOutput =
                 currentCard.await().let { card ->
                     withCol { card.renderOutput(this, linkedNoteDisplayMode = currentLinkedNoteDisplayMode()) }

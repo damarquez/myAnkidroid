@@ -20,6 +20,7 @@ package com.ichi2.anki
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Activity.RESULT_CANCELED
+import android.app.Activity.RESULT_OK
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipDescription
@@ -85,6 +86,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.ichi2.anim.ActivityTransitionAnimation
+import com.ichi2.anki.CardBrowser.Companion.EXTRA_PICKED_NOTE_GUID
 import com.ichi2.anki.CollectionManager.TR
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.NoteEditorFragment.Companion.NoteEditorCaller.Companion.fromValue
@@ -104,6 +106,7 @@ import com.ichi2.anki.common.utils.ext.ifZero
 import com.ichi2.anki.compat.CompatHelper.Companion.getSerializableCompat
 import com.ichi2.anki.compat.setTooltipTextCompat
 import com.ichi2.anki.dialogs.ChangeNoteTypeDialog
+import com.ichi2.anki.dialogs.DeckSelectionDialog
 import com.ichi2.anki.dialogs.DeckSelectionDialog.DeckSelectionListener
 import com.ichi2.anki.dialogs.DiscardChangesDialog
 import com.ichi2.anki.dialogs.IntegerDialog
@@ -156,6 +159,8 @@ import com.ichi2.anki.noteeditor.NoteEditorLauncher
 import com.ichi2.anki.noteeditor.Toolbar
 import com.ichi2.anki.noteeditor.Toolbar.TextFormatListener
 import com.ichi2.anki.noteeditor.Toolbar.TextWrapper
+import com.ichi2.anki.notelinks.formatNoteLinkMarkup
+import com.ichi2.anki.notelinks.isNoteLinkMarkupTextSupported
 import com.ichi2.anki.observability.undoableOp
 import com.ichi2.anki.pages.ImageOcclusion
 import com.ichi2.anki.pages.viewmodel.ImageOcclusionArgs
@@ -330,6 +335,8 @@ class NoteEditorFragment :
     private lateinit var toolbar: Toolbar
     private val aiTextGenerator by lazy { NoteEditorAiTextGenerator() }
     private val azureSpeechSynthesizer by lazy { AzureSpeechSynthesizer() }
+    private var pendingDeckSelectionAction: PendingDeckSelectionAction? = null
+    private var pendingNoteLinkSelection: PendingNoteLinkSelection? = null
 
     // Use the same HTML if the same image is pasted multiple times.
     private var pastedImageCache: HashMap<String, String> = HashMap()
@@ -419,6 +426,22 @@ class NoteEditorFragment :
             },
         )
 
+    private val noteLinkPickerLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+            NoteEditorActivityResultCallback { result ->
+                val guid = result.data?.getStringExtra(EXTRA_PICKED_NOTE_GUID).orEmpty()
+                val pendingSelection = pendingNoteLinkSelection
+                if (result.resultCode != RESULT_OK || guid.isBlank() || pendingSelection == null) {
+                    return@NoteEditorActivityResultCallback
+                }
+                applyNoteLinkSelection(
+                    pendingSelection = pendingSelection,
+                    guid = guid,
+                )
+            },
+        )
+
     private val ioEditorLauncher =
         registerForActivityResult(
             ActivityResultContracts.GetContent(),
@@ -491,6 +514,25 @@ class NoteEditorFragment :
     }
 
     override fun onDeckSelected(deck: SelectableDeck?) {
+        when (pendingDeckSelectionAction) {
+            PendingDeckSelectionAction.NOTE_LINK -> {
+                pendingDeckSelectionAction = null
+                val pendingSelection = pendingNoteLinkSelection
+                if (deck !is SelectableDeck.Deck || pendingSelection == null) {
+                    pendingNoteLinkSelection = null
+                    return
+                }
+                noteLinkPickerLauncher.launch(
+                    CardBrowser.getNotePickerIntent(
+                        context = requireContext(),
+                        deckId = deck.deckId,
+                        initialQuery = pendingSelection.selectedText,
+                    ),
+                )
+                return
+            }
+            null -> {}
+        }
         if (deck == null) {
             return
         }
@@ -2553,6 +2595,7 @@ class NoteEditorFragment :
         }
         addFrequencyLookupButton()
         addLinkedNoteButton()
+        addNoteLinkButton()
         addGenerateAzureTtsButton()
         addGenerateAiTextButton()
         addSetSearchButton()
@@ -2629,6 +2672,16 @@ class NoteEditorFragment :
         val button =
             toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_link)) {
                 chooseLinkedNoteForCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addNoteLinkButton() {
+        val label = getString(R.string.note_editor_note_link)
+        val button =
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_round_open_in_new)) {
+                insertNoteLinkInCurrentField()
             }
         button.contentDescription = label
         button.setTooltipTextCompat(label)
@@ -3026,6 +3079,90 @@ class NoteEditorFragment :
                 }
             }.setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun insertNoteLinkInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            return
+        }
+
+        val start = min(currentField.selectionStart, currentField.selectionEnd)
+        val end = max(currentField.selectionStart, currentField.selectionEnd)
+        if (start == end) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            return
+        }
+
+        val text = currentField.text?.toString().orEmpty()
+        if (start < 0 || end > text.length) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            return
+        }
+
+        val selectedText = text.substring(start, end)
+        if (selectedText.isBlank()) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            return
+        }
+        if (!isNoteLinkMarkupTextSupported(selectedText)) {
+            showSnackbar(getString(R.string.note_editor_note_link_unsupported_text))
+            return
+        }
+
+        pendingNoteLinkSelection =
+            PendingNoteLinkSelection(
+                fieldOrdinal = currentField.ord,
+                start = start,
+                end = end,
+                selectedText = selectedText,
+            )
+        pendingDeckSelectionAction = PendingDeckSelectionAction.NOTE_LINK
+
+        launchCatchingTask {
+            val decks = withProgress { SelectableDeck.fromCollection(includeFiltered = false) }
+            val dialog =
+                DeckSelectionDialog.newInstance(
+                    getString(R.string.note_editor_note_link_choose_deck_title),
+                    getString(R.string.note_editor_note_link_choose_deck_message),
+                    false,
+                    decks,
+                )
+            requireAnkiActivity().showDialogFragment(dialog)
+        }
+    }
+
+    private fun applyNoteLinkSelection(
+        pendingSelection: PendingNoteLinkSelection,
+        guid: String,
+    ) {
+        val field = editFields?.getOrNull(pendingSelection.fieldOrdinal)
+        if (field == null) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            pendingNoteLinkSelection = null
+            return
+        }
+
+        val currentText = field.text?.toString().orEmpty()
+        if (pendingSelection.start < 0 || pendingSelection.end > currentText.length || pendingSelection.start > pendingSelection.end) {
+            showSnackbar(getString(R.string.note_editor_note_link_no_selection))
+            pendingNoteLinkSelection = null
+            return
+        }
+
+        val replacement = formatNoteLinkMarkup(guid, pendingSelection.selectedText)
+        val updated =
+            buildString {
+                append(currentText.substring(0, pendingSelection.start))
+                append(replacement)
+                append(currentText.substring(pendingSelection.end))
+            }
+        field.setText(updated)
+        val newCursor = pendingSelection.start + replacement.length
+        field.setSelection(newCursor.coerceAtMost(updated.length))
+        pendingNoteLinkSelection = null
+        showSnackbar(getString(R.string.note_editor_note_link_applied))
     }
 
     private suspend fun loadLinkedNoteSuggestions(
@@ -3950,6 +4087,17 @@ class NoteEditorFragment :
         val summary: String,
         val storedValue: String,
     )
+
+    private data class PendingNoteLinkSelection(
+        val fieldOrdinal: Int,
+        val start: Int,
+        val end: Int,
+        val selectedText: String,
+    )
+
+    private enum class PendingDeckSelectionAction {
+        NOTE_LINK,
+    }
 
     private val helperNumberedChineseLine = Regex("""^(\d+(?:\.\d+)*)\.\s*((?:\[sound:[^\]\r\n]+\]\s*)*)([\p{IsHan}].*)$""")
     private val helperNumberOnlyLine = Regex("""^(\d+(?:\.\d+)*)\.\s*(?:\[sound:[^\]\r\n]+\]\s*)*$""")

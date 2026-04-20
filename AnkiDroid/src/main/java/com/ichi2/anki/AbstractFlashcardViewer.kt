@@ -139,6 +139,8 @@ import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.loadKnownDeckNames
 import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
+import com.ichi2.anki.notelinks.extractGuidFromNoteLinkUrl
+import com.ichi2.anki.notelinks.findFirstCardIdForNoteGuid
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.observability.undoableOp
 import com.ichi2.anki.pages.AnkiServer
@@ -2533,6 +2535,17 @@ abstract class AbstractFlashcardViewer :
 
             if (url.startsWith("ankidroid-preview://navigate-card")) {
                 handleAnkidroidPreviewNavigate(Uri.parse(url))
+                return true
+            }
+            extractGuidFromNoteLinkUrl(Uri.parse(url))?.let { guid ->
+                launchCatchingTask {
+                    val cardId = findFirstCardIdForNoteGuid(guid)
+                    if (cardId == null) {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                        return@launchCatchingTask
+                    }
+                    openLinkedPreviewActivity(cardId, showAnswer = false)
+                }
                 return true
             }
 

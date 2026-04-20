@@ -326,13 +326,22 @@ class CardBrowserViewModel(
         get() = lastDeckIdRepository.lastDeckId
 
     fun setSelectedDeck(deck: SelectableDeck) {
+        applySelectedDeck(deck, persistSelection = true)
+    }
+
+    private fun applySelectedDeck(
+        deck: SelectableDeck,
+        persistSelection: Boolean,
+    ) {
         Timber.i("setting deck: %s", deck)
 
-        lastDeckIdRepository.lastDeckId =
-            when (deck) {
-                is SelectableDeck.AllDecks -> ALL_DECKS_ID
-                is SelectableDeck.Deck -> deck.deckId
-            }
+        if (persistSelection) {
+            lastDeckIdRepository.lastDeckId =
+                when (deck) {
+                    is SelectableDeck.AllDecks -> ALL_DECKS_ID
+                    is SelectableDeck.Deck -> deck.deckId
+                }
+        }
 
         val deckFilter =
             when (deck) {
@@ -445,6 +454,9 @@ class CardBrowserViewModel(
         Timber.d("CardBrowserViewModel::init, launchOptions: '${options?.javaClass?.simpleName}'")
 
         var selectAllDecks = false
+        var initialDeckOverrideId: DeckId? = null
+        var persistInitialDeckSelection = true
+        var initialCardsOrNotes: CardsOrNotes? = null
         when (options) {
             is CardBrowserLaunchOptions.SystemContextMenu -> {
                 searchTerms = options.search.toString()
@@ -458,6 +470,12 @@ class CardBrowserViewModel(
             }
             is CardBrowserLaunchOptions.ScrollToCard -> {
                 cardIdToBeScrolledTo = options.cardId
+            }
+            is CardBrowserLaunchOptions.NotePicker -> {
+                searchTerms = options.initialQuery
+                initialDeckOverrideId = options.deckId
+                persistInitialDeckSelection = false
+                initialCardsOrNotes = NOTES
             }
             null -> {}
         }
@@ -486,13 +504,21 @@ class CardBrowserViewModel(
         viewModelScope.launch {
             shouldIgnoreAccents = withCol { config.ignoreAccentsInSearch }
 
-            val initialDeckId = if (selectAllDecks) SelectableDeck.AllDecks else getInitialDeck()
+            val initialDeckId =
+                initialDeckOverrideId?.let { deckId ->
+                    SelectableDeck.Deck(deckId = deckId, name = withCol { decks.name(deckId) })
+                }
+                    ?: if (selectAllDecks) {
+                        SelectableDeck.AllDecks
+                    } else {
+                        getInitialDeck()
+                    }
             // PERF: slightly inefficient if the source was lastDeckId
-            setSelectedDeck(initialDeckId)
+            applySelectedDeck(initialDeckId, persistSelection = persistInitialDeckSelection)
             refreshBackendColumns()
 
             val cardsOrNotes = withCol { CardsOrNotes.fromCollection(this@withCol) }
-            flowOfCardsOrNotes.update { cardsOrNotes }
+            flowOfCardsOrNotes.update { initialCardsOrNotes ?: cardsOrNotes }
 
             withCol {
                 sortTypeFlow.update { SortType.fromCol(config, cardsOrNotes, prefs) }

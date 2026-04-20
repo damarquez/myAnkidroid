@@ -46,6 +46,8 @@ import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.parseNavigationRequest
+import com.ichi2.anki.notelinks.extractGuidFromNoteLinkUrl
+import com.ichi2.anki.notelinks.findFirstCardIdForNoteGuid
 import com.ichi2.anki.previewer.PreviewerFragment.Companion.CARD_IDS_FILE_ARG
 import com.ichi2.anki.reviewer.BindingMap
 import com.ichi2.anki.reviewer.BindingProcessor
@@ -232,6 +234,10 @@ class PreviewerFragment :
                 webView: WebView,
                 url: Uri,
             ): Boolean {
+                extractGuidFromNoteLinkUrl(url)?.let { guid ->
+                    openLinkedNoteGuid(guid)
+                    return true
+                }
                 if (url.scheme == "ankidroid-preview" && url.host == "navigate-card") {
                     val payload =
                         url.getQueryParameter("payload")
@@ -260,6 +266,17 @@ class PreviewerFragment :
                     ?.add(Menu.NONE, flag.id, Menu.NONE, name)
                     ?.setIcon(flag.drawableRes)
             }
+        }
+    }
+
+    private fun openLinkedNoteGuid(guid: String) {
+        lifecycleScope.launch {
+            val cardId = findFirstCardIdForNoteGuid(guid)
+            if (cardId == null) {
+                showSnackbar(getString(R.string.search_card_js_api_no_results))
+                return@launch
+            }
+            captureScrollAndOpenLinkedCard(cardId, openMode = "")
         }
     }
 

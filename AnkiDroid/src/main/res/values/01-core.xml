@@ -227,6 +227,17 @@
     <string name="pref_word_ranking_setup_status_not_ready">Bundled ranking data is not set up yet</string>
     <string name="pref_word_ranking_setup_status_ready">Ready: %1$d entries</string>
     <string name="pref_word_ranking_setup_failed">Failed to set up word ranking</string>
+    <string name="note_editor_note_link">Link to note</string>
+    <string name="note_editor_note_link_no_selection">Select text first</string>
+    <string name="note_editor_note_link_unsupported_text">Selected text cannot contain ] or | for note links</string>
+    <string name="note_editor_note_link_choose_deck_title">Choose deck for note link</string>
+    <string name="note_editor_note_link_choose_deck_message">Pick the deck that contains the note you want to link to</string>
+    <string name="note_editor_note_link_search_title">Search note in %1$s</string>
+    <string name="note_editor_note_link_search_hint">Type a note search</string>
+    <string name="note_editor_note_link_no_query">Enter a search term first</string>
+    <string name="note_editor_note_link_no_matches">No notes matched â€œ%1$sâ€ in %2$s</string>
+    <string name="note_editor_note_link_pick_title">Pick a note</string>
+    <string name="note_editor_note_link_applied">Note link inserted</string>
     <string name="card_template_editor_cant_delete">At least one card type is required</string>
     <plurals name="card_template_editor_confirm_add">
         <item quantity="one">This will create %1$d card. Proceed?</item>

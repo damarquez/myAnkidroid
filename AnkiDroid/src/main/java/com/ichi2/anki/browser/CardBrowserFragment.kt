@@ -101,6 +101,7 @@ import com.ichi2.anki.libanki.undoAvailable
 import com.ichi2.anki.libanki.undoLabel
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.CardsOrNotes.CARDS
+import com.ichi2.anki.model.CardsOrNotes.NOTES
 import com.ichi2.anki.model.SelectableDeck
 import com.ichi2.anki.model.SortType
 import com.ichi2.anki.observability.ChangeManager
@@ -1028,6 +1029,22 @@ class CardBrowserFragment :
     fun onTap(id: CardOrNoteId) =
         launchCatchingTask {
             activityViewModel.focusedRow = id
+            if (requireCardBrowserActivity().isNotePickerMode) {
+                val guid =
+                    withCol {
+                        val noteId =
+                            if (activityViewModel.cardsOrNotes == NOTES) {
+                                id.cardOrNoteId
+                            } else {
+                                getCard(id.cardOrNoteId).nid
+                            }
+                        getNote(noteId).guId.orEmpty()
+                    }
+                if (guid.isNotBlank()) {
+                    requireCardBrowserActivity().returnPickedNoteGuidAndClose(guid)
+                }
+                return@launchCatchingTask
+            }
             if (activityViewModel.isInMultiSelectMode) {
                 val wasSelected = activityViewModel.selectedRows.contains(id)
                 activityViewModel.toggleRowSelection(id.toRowSelection())

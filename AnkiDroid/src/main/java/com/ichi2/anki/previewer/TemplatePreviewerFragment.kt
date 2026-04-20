@@ -31,6 +31,8 @@ import com.ichi2.anki.libanki.CardOrdinal
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.parseNavigationRequest
+import com.ichi2.anki.notelinks.extractGuidFromNoteLinkUrl
+import com.ichi2.anki.notelinks.findFirstCardIdForNoteGuid
 import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.snackbar.showSnackbar
@@ -64,6 +66,10 @@ class TemplatePreviewerFragment :
                 webView: WebView,
                 url: Uri,
             ): Boolean {
+                extractGuidFromNoteLinkUrl(url)?.let { guid ->
+                    openLinkedNoteGuid(guid)
+                    return true
+                }
                 if (url.scheme == "ankidroid-preview" && url.host == "navigate-card") {
                     val payload =
                         url.getQueryParameter("payload")
@@ -121,6 +127,17 @@ class TemplatePreviewerFragment :
                 matches.size == 1 -> openLinkedCardPreview(matches.single().cardId, request.openMode)
                 else -> showNavigationMatchPicker(matches, request.openMode)
             }
+        }
+    }
+
+    private fun openLinkedNoteGuid(guid: String) {
+        lifecycleScope.launch {
+            val cardId = findFirstCardIdForNoteGuid(guid)
+            if (cardId == null) {
+                showSnackbar(getString(R.string.search_card_js_api_no_results))
+                return@launch
+            }
+            openLinkedCardPreview(cardId, openMode = "")
         }
     }
 

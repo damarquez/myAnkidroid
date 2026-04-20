@@ -20,6 +20,7 @@ import android.content.Intent
 import androidx.annotation.CheckResult
 import com.ichi2.anki.common.utils.ext.getLongExtra
 import com.ichi2.anki.libanki.CardId
+import com.ichi2.anki.libanki.DeckId
 
 /** How the [com.ichi2.anki.CardBrowser] can be launched */
 sealed interface CardBrowserLaunchOptions {
@@ -40,6 +41,11 @@ sealed interface CardBrowserLaunchOptions {
     data class ScrollToCard(
         val cardId: CardId,
     ) : CardBrowserLaunchOptions
+
+    data class NotePicker(
+        val deckId: DeckId,
+        val initialQuery: String,
+    ) : CardBrowserLaunchOptions
 }
 
 @CheckResult
@@ -58,6 +64,13 @@ fun Intent.toCardBrowserLaunchOptions(): CardBrowserLaunchOptions? {
         return CardBrowserLaunchOptions.ScrollToCard(cardId)
     }
 
+    getLongExtra(EXTRA_NOTE_PICKER_DECK_ID)?.let { deckId ->
+        return CardBrowserLaunchOptions.NotePicker(
+            deckId = deckId,
+            initialQuery = getStringExtra(EXTRA_NOTE_PICKER_INITIAL_QUERY).orEmpty(),
+        )
+    }
+
     // Maybe we were called from ACTION_PROCESS_TEXT
     if (Intent.ACTION_PROCESS_TEXT == action) {
         val search = getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
@@ -69,3 +82,6 @@ fun Intent.toCardBrowserLaunchOptions(): CardBrowserLaunchOptions? {
 
     return null
 }
+
+const val EXTRA_NOTE_PICKER_DECK_ID = "note_picker_deck_id"
+const val EXTRA_NOTE_PICKER_INITIAL_QUERY = "note_picker_initial_query"

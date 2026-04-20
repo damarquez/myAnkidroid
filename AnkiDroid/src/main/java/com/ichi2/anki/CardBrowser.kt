@@ -59,6 +59,8 @@ import com.ichi2.anki.browser.CardBrowserViewModel.SearchState
 import com.ichi2.anki.browser.CardBrowserViewModel.SearchState.Initializing
 import com.ichi2.anki.browser.CardBrowserViewModel.SearchState.Searching
 import com.ichi2.anki.browser.CardOrNoteId
+import com.ichi2.anki.browser.EXTRA_NOTE_PICKER_DECK_ID
+import com.ichi2.anki.browser.EXTRA_NOTE_PICKER_INITIAL_QUERY
 import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.browser.SaveSearchResult
 import com.ichi2.anki.browser.SharedPreferencesLastDeckIdRepository
@@ -146,6 +148,9 @@ open class CardBrowser :
     override fun onDeckSelected(deck: SelectableDeck?) {
         deck?.let { deck -> launchCatchingTask { viewModel.setSelectedDeck(deck) } }
     }
+
+    val isNotePickerMode: Boolean
+        get() = intent?.toCardBrowserLaunchOptions() is CardBrowserLaunchOptions.NotePicker
 
     override var fragmented: Boolean
         get() = viewModel.isFragmented
@@ -903,6 +908,14 @@ open class CardBrowser :
         onAddNoteActivityResult.launch(addNoteLauncher.toIntent(this))
     }
 
+    fun returnPickedNoteGuidAndClose(guid: String) {
+        val data =
+            Intent().apply {
+                putExtra(EXTRA_PICKED_NOTE_GUID, guid)
+            }
+        closeCardBrowser(RESULT_OK, data)
+    }
+
     public override fun onSaveInstanceState(outState: Bundle) {
         // Save current search terms
         outState.putString("mSearchTerms", viewModel.searchTerms)
@@ -1170,6 +1183,8 @@ open class CardBrowser :
     // endregion
 
     companion object {
+        const val EXTRA_PICKED_NOTE_GUID = "picked_note_guid"
+
         // Keys for saving pane weights in SharedPreferences
         private const val PREF_CARD_BROWSER_PANE_WEIGHT = "cardBrowserPaneWeight"
         private const val PREF_NOTE_EDITOR_PANE_WEIGHT = "noteEditorPaneWeight"
@@ -1180,6 +1195,16 @@ open class CardBrowser :
         @VisibleForTesting
         fun createAddNoteLauncher(viewModel: CardBrowserViewModel): NoteEditorLauncher =
             NoteEditorLauncher.AddNoteFromCardBrowser(viewModel)
+
+        fun getNotePickerIntent(
+            context: Context,
+            deckId: DeckId,
+            initialQuery: String,
+        ): Intent =
+            Intent(context, CardBrowser::class.java).apply {
+                putExtra(EXTRA_NOTE_PICKER_DECK_ID, deckId)
+                putExtra(EXTRA_NOTE_PICKER_INITIAL_QUERY, initialQuery)
+            }
     }
 }
 

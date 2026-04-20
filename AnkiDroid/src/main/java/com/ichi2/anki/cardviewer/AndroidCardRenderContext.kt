@@ -27,6 +27,7 @@ import com.ichi2.anki.libanki.TemplateManager.TemplateRenderContext.TemplateRend
 import com.ichi2.anki.libanki.template.MathJax
 import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
 import com.ichi2.anki.multimedia.expandSounds
+import com.ichi2.anki.notelinks.expandNoteLinksToHtml
 import com.ichi2.anki.preferences.sharedPrefs
 import com.ichi2.anki.reviewer.ReviewerCustomFonts
 import timber.log.Timber
@@ -64,6 +65,7 @@ class AndroidCardRenderContext(
         content = enrichWithQADiv(content)
         // expands [anki:q:1] to a play button
         content = expandSounds(content, renderOutput, col)
+        content = expandNoteLinksToHtml(content)
         // fixes an Android bug where font-weight:600 does not display
         content = CardAppearance.fixBoldStyle(content)
 
