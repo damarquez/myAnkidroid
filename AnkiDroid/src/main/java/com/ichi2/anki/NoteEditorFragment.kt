@@ -33,8 +33,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.Editable
+import android.text.Spanned
 import android.text.TextUtils
 import android.text.TextWatcher
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.ActionMode
 import android.view.KeyEvent
 import android.view.Menu
@@ -66,6 +70,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.ColorUtils
 import androidx.core.os.BundleCompat
 import androidx.core.text.HtmlCompat
 import androidx.core.util.component1
@@ -2370,6 +2375,7 @@ class NoteEditorFragment :
     ) {
         // Listen for changes in the first field so we can re-check duplicate status.
         editText!!.addTextChangedListener(EditFieldTextWatcher(index))
+        editText.text?.let(::applyMarkupGuideSpans)
         if (index == 0) {
             editText.onFocusChangeListener =
                 OnFocusChangeListener { _: View?, hasFocus: Boolean ->
@@ -2426,6 +2432,7 @@ class NoteEditorFragment :
             } else {
                 editFields!![i].setText("")
             }
+            editFields!![i].text?.let(::applyMarkupGuideSpans)
         }
     }
 
@@ -4099,11 +4106,42 @@ class NoteEditorFragment :
         NOTE_LINK,
     }
 
+    private class NoteMarkupBlockSpan(
+        color: Int,
+    ) : BackgroundColorSpan(color)
+
+    private class NoteMarkupBlockTextSpan(
+        color: Int,
+    ) : ForegroundColorSpan(color)
+
+    private class NoteMarkupProtectedPrefixSpan(
+        color: Int,
+    ) : ForegroundColorSpan(color)
+
+    private class NoteMarkupProtectedPrefixBackgroundSpan(
+        color: Int,
+    ) : BackgroundColorSpan(color)
+
+    private class NoteMarkupProtectedPrefixBoldSpan : StyleSpan(android.graphics.Typeface.BOLD)
+
+    private class NoteMarkupBracketSpan(
+        color: Int,
+    ) : ForegroundColorSpan(color)
+
+    private class NoteMarkupBracketBackgroundSpan(
+        color: Int,
+    ) : BackgroundColorSpan(color)
+
+    private class NoteMarkupBracketBoldSpan : StyleSpan(android.graphics.Typeface.BOLD)
+
     private val helperNumberedChineseLine = Regex("""^(\d+(?:\.\d+)*)\.\s*((?:\[sound:[^\]\r\n]+\]\s*)*)([\p{IsHan}].*)$""")
     private val helperNumberOnlyLine = Regex("""^(\d+(?:\.\d+)*)\.\s*(?:\[sound:[^\]\r\n]+\]\s*)*$""")
     private val helperStartsWithCjk = Regex("""^[\p{IsHan}]""")
     private val helperHiddenLineSuffix = Regex("""\s*\(\*\d?\)\s*$""")
     private val helperSpacesBeforeNewline = Regex("""[ \t]+\n""")
+    private val editorBracketRegex = Regex("""[\[\]]""")
+    private val editorMarkupBlockRegex = Regex("""\[link:(?:"[^"\r\n]+"|[^|\]\r\n]+)\|[^\]]+]|\[[^\[\]\r\n]*]""")
+    private val editorLinkProtectedPrefixRegex = Regex("""\[link:(?:"[^"\r\n]+"|[^|\]\r\n]+)\|""")
     private val linkedNoteSummaryMaxLength = 120
 
     private inner class PropSearchSuggestionAdapter(
@@ -4478,10 +4516,111 @@ class NoteEditorFragment :
      */
     private var loadingStickyFields = false
 
+    private fun applyMarkupGuideSpans(editable: Editable) {
+        editable.getSpans(0, editable.length, NoteMarkupBlockSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupBlockTextSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupProtectedPrefixSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupProtectedPrefixBackgroundSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupProtectedPrefixBoldSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupBracketSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupBracketBackgroundSpan::class.java).forEach(editable::removeSpan)
+        editable.getSpans(0, editable.length, NoteMarkupBracketBoldSpan::class.java).forEach(editable::removeSpan)
+
+        val text = editable.toString()
+        if (text.isEmpty()) {
+            return
+        }
+
+        val blockBaseColor =
+            MaterialColors.getColor(
+                requireContext(),
+                com.google.android.material.R.attr.colorSecondaryContainer,
+                0xFFB0BEC5.toInt(),
+            )
+        val blockTextColor =
+            MaterialColors.getColor(
+                requireContext(),
+                com.google.android.material.R.attr.colorOnSecondaryContainer,
+                0xFF263238.toInt(),
+            )
+        val blockColor = ColorUtils.setAlphaComponent(blockBaseColor, 96)
+        val protectedBaseColor =
+            MaterialColors.getColor(
+                requireContext(),
+                com.google.android.material.R.attr.colorTertiaryContainer,
+                0xFFBBDEFB.toInt(),
+            )
+        val protectedColor =
+            MaterialColors.getColor(
+                requireContext(),
+                com.google.android.material.R.attr.colorOnTertiaryContainer,
+                0xFF0D47A1.toInt(),
+            )
+        val protectedBackground = ColorUtils.setAlphaComponent(protectedBaseColor, 144)
+
+        editorMarkupBlockRegex.findAll(text).forEach { match ->
+            editable.setSpan(
+                NoteMarkupBlockSpan(blockColor),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            editable.setSpan(
+                NoteMarkupBlockTextSpan(blockTextColor),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+
+        editorLinkProtectedPrefixRegex.findAll(text).forEach { match ->
+            editable.setSpan(
+                NoteMarkupProtectedPrefixSpan(protectedColor),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            editable.setSpan(
+                NoteMarkupProtectedPrefixBackgroundSpan(protectedBackground),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            editable.setSpan(
+                NoteMarkupProtectedPrefixBoldSpan(),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+
+        editorBracketRegex.findAll(text).forEach { match ->
+            editable.setSpan(
+                NoteMarkupBracketSpan(protectedColor),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            editable.setSpan(
+                NoteMarkupBracketBackgroundSpan(protectedBackground),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            editable.setSpan(
+                NoteMarkupBracketBoldSpan(),
+                match.range.first,
+                match.range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+    }
+
     private inner class EditFieldTextWatcher(
         private val index: Int,
     ) : TextWatcher {
         override fun afterTextChanged(arg0: Editable) {
+            applyMarkupGuideSpans(arg0)
             delegate?.onNoteTextChanged()
 
             if (!loadingStickyFields) {

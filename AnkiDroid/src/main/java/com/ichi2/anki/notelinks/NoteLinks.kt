@@ -4,12 +4,12 @@ import android.net.Uri
 import android.text.TextUtils
 import com.ichi2.anki.CollectionManager.withCol
 
-private val NOTE_LINK_REGEX = Regex("""\[link:([^|\]\r\n]+)\|([^\]]+)]""")
+private val NOTE_LINK_REGEX = Regex("""\[link:(?:"([^"\r\n]+)"|([^|\]\r\n]+))\|([^\]]+)]""")
 
 fun expandNoteLinksToHtml(content: String): String =
     NOTE_LINK_REGEX.replace(content) { match ->
-        val guid = match.groupValues[1].trim()
-        val label = match.groupValues[2]
+        val guid = match.groupValues[1].ifBlank { match.groupValues[2] }.trim()
+        val label = match.groupValues[3]
         if (guid.isBlank() || label.isBlank()) {
             match.value
         } else {
@@ -20,7 +20,7 @@ fun expandNoteLinksToHtml(content: String): String =
 fun formatNoteLinkMarkup(
     guid: String,
     label: String,
-): String = "[link:${guid.trim()}|$label]"
+): String = "[link:\"${guid.trim()}\"|$label]"
 
 fun isNoteLinkMarkupTextSupported(text: String): Boolean = !text.contains(']') && !text.contains('|')
 
