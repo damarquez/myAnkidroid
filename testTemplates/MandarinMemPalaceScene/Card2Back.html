@@ -52,7 +52,14 @@
 
 <hr>
 
-<!-- Native nav selection controls are provided by AnkiDroid when ankidroid-nav-config is present. -->
+
+{{#Traditional}}
+<div class="field-container traditional-field">
+    <div class="field-label">Traditional Characters:</div><br>
+    <div class="field-rich-content">{{Traditional}}</div>
+</div>
+<hr>
+{{/Traditional}}
 
 {{#Pinyin}}
 <div class="field-container pinyin-field">
@@ -88,9 +95,21 @@
 
 {{HSK Frequency}}
 
+
+<script id="ankidroid-linked-note-config" type="application/json">
+{
+  // Field that stores the GUID of another note to visually inherit blank fields from.
+  "linkedNoteField": "Linked Note",
+  "deck": "MandarinMP::Characters",
+  "labelFields": ["Front", "Back"],
+  "searchField": "Front"
+}
+</script>
+
+
 <script id="ankidroid-audio-config" type="application/json">
 {
-  "playbackSpeeds": [0.5, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5],
+  "playbackSpeeds": [1.0, 0.5, 0.7, 0.8, 0.9, 1.2, 1.5],
   "defaultPlaybackSpeed": 1.0,
   "repeatCounts": [1, 2, 3, 5, 10],
   "defaultRepeatCount": 3,
