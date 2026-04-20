@@ -147,6 +147,8 @@
     }
 
     function deckExists(entry) {
+        const navMode = String((entry && entry.navMode) || "deck").toLowerCase();
+        if (navMode === "app") return true;
         const known = window.__ankidroidKnownDecks;
         // If we haven't received the list yet, don't filter — avoids hiding buttons
         // during the brief window between page load and native injection.
@@ -182,21 +184,22 @@
         }
     }
 
-    function chooseSearchConfig(entries, originField) {
-        if (!Array.isArray(entries) || entries.length === 0) return null;
+    function chooseSearchConfigs(entries, originField) {
+        if (!Array.isArray(entries) || entries.length === 0) return [];
         const normalizedOrigin = normalizeOriginField(originField);
-        let genericEntry = null;
+        const matchingEntries = [];
+        const genericEntries = [];
         for (const entry of entries) {
             const entryOrigin = normalizeOriginField(entry && entry.originField);
             if (!entryOrigin) {
-                genericEntry = genericEntry || entry;
+                genericEntries.push(entry);
                 continue;
             }
             if (normalizedOrigin && entryOrigin === normalizedOrigin) {
-                return entry;
+                matchingEntries.push(entry);
             }
         }
-        return genericEntry;
+        return matchingEntries.length ? matchingEntries : genericEntries;
     }
 
     function buildNavigationPayload(query, config, selectedText, originField) {
@@ -235,6 +238,27 @@
         } catch (e) {}
     }
 
+    function getDefaultButtonLabel(sectionName) {
+        if (sectionName === "character") return "Char";
+        if (sectionName === "singleCharWord") return "Word";
+        return "Search";
+    }
+
+    function buildAppUrl(template, selectedText) {
+        const rawTemplate = String(template || "").trim();
+        if (!rawTemplate) return "";
+        return rawTemplate.replace(/\[\[\s*(url:)?([^\]]+)\s*\]\]/gi, function (_match, urlPrefix) {
+            const value = selectedText;
+            return urlPrefix ? encodeURIComponent(value) : value;
+        });
+    }
+
+    function openAppAction(url) {
+        try {
+            window.location.href = url;
+        } catch (e) {}
+    }
+
     function createSearchButton(selectedText, rect) {
         removeSelectionSearchUI();
 
@@ -254,18 +278,17 @@
 
         const isSingleChar = clean.length === 1;
         const originField = getSelectionOriginField();
-        const characterConfig = chooseSearchConfig(config.character, originField);
-        const singleCharWordConfig = chooseSearchConfig(config.singleCharWord, originField);
-        const wordConfig = chooseSearchConfig(config.word, originField);
+        const characterConfigs = chooseSearchConfigs(config.character, originField);
+        const singleCharWordConfigs = chooseSearchConfigs(config.singleCharWord, originField);
+        const wordConfigs = chooseSearchConfigs(config.word, originField);
 
-        const btnWidth = 84;
         const btnHeight = 36;
         const btnGap = 8;
         const nativePopupSafetyGap = 72;
 
         const buttons = [];
 
-        function makeBtn(label, query, searchConfig) {
+        function makeBtn(label, clickHandler) {
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = SEARCH_BTN_CLASS;
@@ -273,8 +296,9 @@
 
             btn.style.position = "fixed";
             btn.style.zIndex = "999999";
-            btn.style.width = btnWidth + "px";
+            btn.style.minWidth = "84px";
             btn.style.height = btnHeight + "px";
+            btn.style.padding = "0 14px";
             btn.style.border = "none";
             btn.style.borderRadius = "18px";
             btn.style.background = "#2e7d32";
@@ -298,8 +322,7 @@
             btn.addEventListener("click", function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                const payload = buildNavigationPayload(query, searchConfig, clean, originField);
-                openPreviewSearch(payload);
+                clickHandler();
                 removeSelectionSearchUI();
             });
 
@@ -307,23 +330,41 @@
             buttons.push(btn);
         }
 
+        function addButtonsForConfigs(sectionName, entries) {
+            entries.forEach(function (entry) {
+                const navMode = String((entry && entry.navMode) || "deck").toLowerCase();
+                const label = String((entry && entry.label) || getDefaultButtonLabel(sectionName));
+                if (navMode === "app") {
+                    const url = buildAppUrl(entry && entry.urlTemplate, clean);
+                    if (!url) return;
+                    makeBtn(label, function () {
+                        openAppAction(url);
+                    });
+                    return;
+                }
+                const query = buildFieldQuery(clean, entry);
+                makeBtn(label, function () {
+                    const payload = buildNavigationPayload(query, entry, clean, originField);
+                    openPreviewSearch(payload);
+                });
+            });
+        }
+
         if (isSingleChar) {
-            if (characterConfig) {
-                makeBtn("Char", buildFieldQuery(clean, characterConfig), characterConfig);
+            addButtonsForConfigs("character", characterConfigs);
+            addButtonsForConfigs("singleCharWord", singleCharWordConfigs);
+            if (!buttons.length) {
+                addButtonsForConfigs("word", wordConfigs);
             }
-            if (singleCharWordConfig) {
-                makeBtn("Word", buildFieldQuery(clean, singleCharWordConfig), singleCharWordConfig);
-            }
-            if (!buttons.length && wordConfig) {
-                makeBtn("Search", buildFieldQuery(clean, wordConfig), wordConfig);
-            }
-        } else if (wordConfig) {
-            makeBtn("Search", buildFieldQuery(clean, wordConfig), wordConfig);
+        } else {
+            addButtonsForConfigs("word", wordConfigs);
         }
 
         if (!buttons.length) return;
 
-        const totalWidth = buttons.length * btnWidth + (buttons.length - 1) * btnGap;
+        const widths = buttons.map(btn => Math.ceil(btn.getBoundingClientRect().width));
+        const totalWidth =
+            widths.reduce((sum, width) => sum + width, 0) + (buttons.length - 1) * btnGap;
         let startLeft = rect.left + rect.width / 2 - totalWidth / 2;
         startLeft = Math.max(8, Math.min(window.innerWidth - totalWidth - 8, startLeft));
         let top = rect.bottom + nativePopupSafetyGap;
@@ -332,9 +373,11 @@
         }
         top = Math.max(8, Math.min(window.innerHeight - btnHeight - 8, top));
 
+        let left = startLeft;
         buttons.forEach((btn, i) => {
-            btn.style.left = startLeft + i * (btnWidth + btnGap) + "px";
+            btn.style.left = left + "px";
             btn.style.top = top + "px";
+            left += widths[i] + btnGap;
         });
     }
 

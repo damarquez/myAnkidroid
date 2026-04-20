@@ -3135,15 +3135,16 @@ class NoteEditorFragment :
     private fun formatLinkedNoteStoredValue(
         guid: String,
         summary: String,
-    ): String = buildString {
-        append('{')
-        append(guid)
-        append('}')
-        if (summary.isNotBlank()) {
-            append(' ')
-            append(summary)
+    ): String =
+        buildString {
+            append('{')
+            append(guid)
+            append('}')
+            if (summary.isNotBlank()) {
+                append(' ')
+                append(summary)
+            }
         }
-    }
 
     private fun insertPropInCurrentField() {
         val currentField = requireActivity().currentFocus as? FieldEditText

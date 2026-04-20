@@ -96,6 +96,10 @@
 {{HSK Frequency}}
 
 
+<!---------------------------
+    JSON configurations (need to be kept common for both front and back)
+ ---------------------------->
+
 <script id="ankidroid-linked-note-config" type="application/json">
 {
   // Field that stores the GUID of another note to visually inherit blank fields from.
@@ -155,32 +159,49 @@
 {
   // matchMode: "exact" | "partial"
   // openMode: "question" | "answer"
-  "character": {
-    "deck": "MandarinMP::Characters",
-    "field": "Front",
-    "fallbackField": "Traditional",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": ""
-  },
+  "character": [
+    {
+      "label": "Char",
+      "navMode": "deck",
+      "deck": "MandarinMP::Characters",
+      "field": "Front",
+      "fallbackField": "Traditional",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    }
+  ],
   // singleCharWord is used by the "Word" button when only one character is selected.
-  "singleCharWord": {
-    "deck": "MandarinMP::Vocabulary",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": "."
-  },
-  "word": {
-    "deck": "MandarinMP::Vocabulary",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": ""
-  }
+  "singleCharWord": [
+    {
+      "label": "Word",
+      "navMode": "deck",
+      "deck": "MandarinMP::Vocabulary",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": "."
+    }
+  ],
+  "word": [
+    {
+      "label": "Search",
+      "navMode": "deck",
+      "deck": "MandarinMP::Vocabulary",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
+    {
+      "label": "Hanping",
+      "navMode": "app",
+      "urlTemplate": "https://hanpingchinese.com/cmn/word?t=[[url:selectedText]]"
+    }
+  ]
 }
 </script>
 
@@ -329,4 +350,3 @@
   }
 ]
 </script>
-

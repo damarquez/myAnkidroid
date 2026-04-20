@@ -1606,12 +1606,17 @@ open class CardTemplateEditor :
                   // matchMode: "exact" | "partial"
                   // openMode: "question" | "answer"
                   // Each section can be a single generic action, or a list of actions.
-                  // If originField is present, it is only used when the selection came from that field.
-                  // If no originField-specific action matches, the generic action is used as fallback.
+                  // navMode: "deck" | "app" (default: "deck")
+                  // label controls the floating button text.
+                  // If originField is present, those entries are shown only when the selection came from that field.
+                  // If no originField-specific entries match, the generic entries are shown as fallback.
                   // fallbackField is optional and is searched only if the main field returns no result.
+                  // app actions ignore deck/field/fallbackField/matchMode/prefix/suffix and use urlTemplate instead.
                   "character": [
                     {
+                      "label": "Char Pinyin",
                       "originField": "Pinyin",
+                      "navMode": "deck",
                       "deck": "TargetDeck::CharactersByPinyin",
                       "field": "Front",
                       "fallbackField": "AltFront",
@@ -1621,6 +1626,13 @@ open class CardTemplateEditor :
                       "suffix": ""
                     },
                     {
+                      "label": "Hanping",
+                      "navMode": "app",
+                      "urlTemplate": "https://hanpingchinese.com/cmn/word?t=[[url:selectedText]]"
+                    },
+                    {
+                      "label": "Char",
+                      "navMode": "deck",
                       "deck": "TargetDeck::Characters",
                       "field": "Front",
                       "fallbackField": "",
@@ -1632,6 +1644,8 @@ open class CardTemplateEditor :
                   ],
                   // singleCharWord is used by the "Word" button when only one character is selected.
                   "singleCharWord": {
+                    "label": "Word",
+                    "navMode": "deck",
                     "deck": "TargetDeck::Vocabulary",
                     "field": "Front",
                     "fallbackField": "Back",
@@ -1640,15 +1654,31 @@ open class CardTemplateEditor :
                     "prefix": "",
                     "suffix": "."
                   },
-                  "word": {
-                    "deck": "TargetDeck::Vocabulary",
-                    "field": "Front",
-                    "fallbackField": "",
-                    "matchMode": "exact",
-                    "openMode": "answer",
-                    "prefix": "",
-                    "suffix": ""
-                  }
+                  // A section may also be a list when you want multiple buttons:
+                  // For app mode, [[selectedText]], [[Front]], or [[url:Front]] all resolve from the selection.
+                  "word": [
+                    {
+                      "label": "Search",
+                      "navMode": "deck",
+                      "deck": "TargetDeck::Vocabulary",
+                      "field": "Front",
+                      "fallbackField": "",
+                      "matchMode": "exact",
+                      "openMode": "answer",
+                      "prefix": "",
+                      "suffix": ""
+                    },
+                    {
+                      "label": "Pleco",
+                      "navMode": "app",
+                      "urlTemplate": "plecoapi://x-callback-url/s?q=[[url:Front]]"
+                    },
+                    {
+                      "label": "HSK",
+                      "navMode": "app",
+                      "urlTemplate": "https://hskhsk.pythonanywhere.com/cidian?q=[[url:selectedText]]"
+                    }
+                  ]
                 }
                 </script>
 

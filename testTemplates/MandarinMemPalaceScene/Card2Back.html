@@ -96,6 +96,12 @@
 {{HSK Frequency}}
 
 
+
+
+<!---------------------------
+    JSON configurations (need to be kept common for both front and back)
+ ---------------------------->
+
 <script id="ankidroid-linked-note-config" type="application/json">
 {
   // Field that stores the GUID of another note to visually inherit blank fields from.
@@ -135,7 +141,7 @@
     },
     {
       "end": "(*2)",
-      "label": "Pinyin",
+      "label": "Pinyin!",
       "initialState": "hidden",
       "delimiterHasEOL": true
     },
@@ -149,34 +155,205 @@
 }
 </script>
 
+
+
 <script id="ankidroid-nav-config" type="application/json">
 {
   // matchMode: "exact" | "partial"
   // openMode: "question" | "answer"
-  "character": {
-    "deck": "MandarinMP::Characters",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": ""
-  },
+  "character": [
+    {
+      "label": "Char",
+      "navMode": "deck",
+      "deck": "MandarinMP::Characters",
+      "field": "Front",
+      "fallbackField": "Traditional",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
+    {
+      "label": "Hanping",
+      "navMode": "app",
+      "urlTemplate": "https://hanpingchinese.com/cmn/word?t=[[url:selectedText]]"
+    }
+  ],
   // singleCharWord is used by the "Word" button when only one character is selected.
-  "singleCharWord": {
-    "deck": "MandarinMP::Vocabulary",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": "."
-  },
-  "word": {
-    "deck": "MandarinMP::Vocabulary",
-    "field": "Front",
-    "matchMode": "exact",
-    "openMode": "answer",
-    "prefix": "",
-    "suffix": ""
-  }
+  "singleCharWord": [
+    {
+      "label": "Word",
+      "navMode": "deck",
+      "deck": "MandarinMP::Vocabulary",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": "."
+    }
+  ],
+  "word": [
+    {
+      "label": "Search",
+      "navMode": "deck",
+      "deck": "MandarinMP::Vocabulary",
+      "field": "Front",
+      "matchMode": "exact",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
+    {
+      "label": "Hanping",
+      "navMode": "app",
+      "urlTemplate": "https://hanpingchinese.com/cmn/word?t=[[url:selectedText]]"
+    }
+  ]
 }
+</script>
+
+
+
+<script id="ankidroid-tts-config" type="application/json">
+[
+  {
+    // Optional: when present, this rule is only used for this field name.
+    "field": "Examples",
+    // The field whose text is parsed and rewritten.
+    "sourceField": "Examples",
+    // Optional: where to write the transformed text. Defaults to sourceField.
+    "targetField": "Examples",
+    // V1 only supports numbered Mandarin examples.
+    "mode": "numberedMandarinExamples",
+    // Field used as the base of generated filenames.
+    "filenameField": "Front",
+    // Optional text inserted before filenameField.
+    "filenamePrefixText": "",
+    // Optional text inserted after filenameField.
+    "filenameSuffixText": "-"
+  },
+{
+    // Optional: when present, this rule is only used for this field name.
+    "field": "Pinyin",
+    // The field whose text is parsed and rewritten.
+    "sourceField": "Front",
+    // Optional: where to write the transformed text. Defaults to sourceField.
+    "targetField": "Pinyin",
+    // V1 only supports numbered Mandarin examples.
+    "mode": "simpleExample",
+    // Field used as the base of generated filenames.
+    "filenameField": "Front",
+    // Optional text inserted before filenameField.
+    "filenamePrefixText": "",
+    // Optional text inserted after filenameField.
+    "filenameSuffixText": "-"
+  }
+]
+</script>
+
+
+<script id="ankidroid-prop-search-config" type="application/json">
+[
+  {
+    // Optional: when present, this rule is only used for this field name.
+    "field": "Reason",
+    // Deck searched for prop notes.
+    "deck": "MandarinMP::Meta-Props",
+    // Field in the prop notes that contains the clozes.
+    "sourceField": "Text",
+    // Cloze number inserted back into the edited field.
+    "insertCloze": 1,
+    // Cloze number searched and shown as the label in the picker.
+    "searchCloze": 2,
+    // Regex used to detect the active token around the cursor when nothing is selected.
+    "tokenPattern": "[A-Za-z]+",
+    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+    "maxResults": 8,
+    "matchMode": "partial",
+     "applyMode":"wholeEntry"
+  }
+]
+</script>
+
+
+<script id="ankidroid-actor-search-config" type="application/json">
+[
+  {
+    // Optional: when present, this rule is only used for this field name.
+    "field": "Reason",
+    // Deck searched for actor notes.
+    "deck": "MandarinMP::Meta-Actors",
+    // Field in the actor notes that contains the clozes.
+    "sourceField": "Text",
+    // Cloze number searched from the typed token.
+    "searchCloze": 1,
+    // Cloze number appended in parentheses after the token.
+    "labelCloze": 2,
+    // Regex used to detect the active token around the cursor when nothing is selected.
+    "tokenPattern": "[A-Za-z]+-?",
+    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+    "maxResults": 8
+  }
+]
+</script>
+
+
+<script id="ankidroid-set-search-config" type="application/json">
+[
+  {
+    // Optional: when present, this rule is only used for this field name.
+    "field": "Reason",
+    // Deck searched for set notes.
+    "deck": "MandarinMP::Meta-Sets",
+    // Field matched against the token under the cursor.
+    "searchField": "Back",
+    // Field inserted into the edited note after a choice is made.
+    "labelField": "Front",
+    // matchMode: "exact" | "partial"
+    "matchMode": "partial",
+    // applyMode: "replace" | "append"
+    "applyMode": "append",
+    // Regex used to detect the active token around the cursor when nothing is selected.
+    "tokenPattern": "-?[\\p{L}\\p{M}]+",
+    // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
+    "maxResults": 8
+  }
+]
+</script>
+
+
+
+<script id="ankidroid-ai-config" type="application/json">
+[
+  {
+    // Optional: when present, this prompt is only used for this field name.
+    "field": "Examples",
+    // Required: the main instruction sent to the AI service.
+    "prompt": " is a Mandarin word. Provide 5 simple, beginner level examples (5-20 chars) of that exact word. Return ONLY raw text. No markdown fences (```), no bold, no intro/outro.\\n\\nRequired Template (remove [], but leave quotes or ()): \\n\\n1.[Mandarin](*1)\\n([Pinyin])(*2)\\n\"[English]\"(*2)\\n\\n(Blank line)\\n\\n2.[Mandarin](*1)\\n...\\nExample:\\n1. 这是我的书。 (*1)\\n   (Zhè shì wǒ de shū.) (*2)\\n   \"This is my book.\" (*3)\\n\\n2. 红色的花好看。(*1)\\n   (Hóngsè de huā hǎokàn.) (*2)\\n   \"The red flowers are pretty.\" (*3)\\n\\nStrict Rules:\\n\\n- You must use sequential numbers (1-5).\\n- You must add (*1) at the end of the Mandarin line, (*2) at end of Pinyin line, (*3) for example line.\\n- You must put a line break after Mandarin and Pinyin.\\n- You must leave exactly one blank line between examples.\\n- Only add a brief note at the very end if absolutely necessary.",
+    // Optional: fixed text placed before the prompt.
+    "prefixText": "",
+    // Optional: field value placed before the prompt.
+    "prefixField": "Front",
+    // Optional: fixed text placed after the prompt.
+    "suffixText": ""
+    // Optional: field value placed after the prompt.
+    //"suffixField": "Back"
+  }
+]
+</script>
+
+
+<script id="ankidroid-frequency-config" type="application/json">
+[
+  {
+    // Optional: when present, this rule is only used for this field name.
+    "field": "HSK Frequency",
+    // Field whose text is looked up in the bundled word-ranking store.
+    "sourceField": "Front",
+    // Optional: field that receives the formatted ranking result. Defaults to the current field.
+    "targetField": "HSK Frequency",
+    // format: "rankOnly" | "rankAndTerm"
+    "format": "rankAndTerm"
+  }
+]
 </script>
