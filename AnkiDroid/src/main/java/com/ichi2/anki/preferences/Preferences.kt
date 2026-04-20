@@ -22,7 +22,9 @@ package com.ichi2.anki.preferences
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.XmlRes
 import androidx.core.os.bundleOf
@@ -56,7 +58,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.jvm.jvmName
 
 class PreferencesFragment :
-    Fragment(R.layout.fragment_preferences),
+    Fragment(),
     PreferenceFragmentCompat.OnPreferenceStartFragmentCallback,
     SearchPreferenceResultListener {
     /**
@@ -78,6 +80,20 @@ class PreferencesFragment :
         FragmentManager.OnBackStackChangedListener {
             childFragmentOnBackPressedCallback.isEnabled = childFragmentManager.backStackEntryCount > 0
         }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?,
+    ): View {
+        val layoutRes =
+            if (settingsIsSplit) {
+                R.layout.fragment_preferences
+            } else {
+                R.layout.fragment_preferences_single_pane
+            }
+        return inflater.inflate(layoutRes, container, false)
+    }
 
     override fun onViewCreated(
         view: View,
