@@ -61,12 +61,29 @@
             black/white resources here.
         -->
         <!-- Grading buttons + Show Answer: solid black background, white text -->
-        <!-- Old reviewer (AbstractFlashcardViewer) uses *ButtonRef drawables and answerButtonTextColor -->
+        <!--
+            Old reviewer (AbstractFlashcardViewer) uses both the static *ButtonRef
+            drawables and the ripple variants. The ripple drawables resolve
+            answerButtonBackground via Again/Hard/Good/EasyButton styles, so the
+            color attrs must be overridden here as well.
+        -->
         <item name="answerButtonTextColor">#ffffff</item>
+        <item name="againButtonBackground">#000000</item>
+        <item name="hardButtonBackground">#000000</item>
+        <item name="goodButtonBackground">#000000</item>
+        <item name="easyButtonBackground">#000000</item>
+        <item name="againButtonTextColor">#ffffff</item>
+        <item name="hardButtonTextColor">#ffffff</item>
+        <item name="goodButtonTextColor">#ffffff</item>
+        <item name="easyButtonTextColor">#ffffff</item>
         <item name="againButtonRef">@drawable/footer_button_all_black</item>
         <item name="hardButtonRef">@drawable/footer_button_all_black</item>
         <item name="goodButtonRef">@drawable/footer_button_all_black</item>
         <item name="easyButtonRef">@drawable/footer_button_all_black</item>
+        <item name="againButtonRippleRef">@drawable/footer_button_all_black_ripple</item>
+        <item name="hardButtonRippleRef">@drawable/footer_button_all_black_ripple</item>
+        <item name="goodButtonRippleRef">@drawable/footer_button_all_black_ripple</item>
+        <item name="easyButtonRippleRef">@drawable/footer_button_all_black_ripple</item>
         <!-- New reviewer (ReviewerFragment / view_answer_area.xml) uses these instead -->
         <item name="againBackgroundColor">#000000</item>
         <item name="hardBackgroundColor">#000000</item>

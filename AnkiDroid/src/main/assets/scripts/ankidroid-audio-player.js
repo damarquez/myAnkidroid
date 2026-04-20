@@ -3,6 +3,7 @@
     const PLAYER_CLASS = "ankidroid-native-audio-player";
     const STOP_ALL_CLASS = "ankidroid-native-audio-stop-all";
     const STATE_EVENT = "ankidroid-audio-player-state";
+    const SPEED_ICON = "\u26A1\uFE0E";
 
     let activePlayerId = null;
     let observerInstalled = false;
@@ -170,7 +171,7 @@
             speedButton.type = "button";
             speedButton.className = "ankidroid-audio-speed";
             speedButton.setAttribute("aria-label", "Playback speed");
-            speedButton.textContent = `\u26A1 ${formatSpeed(config.defaultPlaybackSpeed)}`;
+            speedButton.textContent = `${SPEED_ICON} ${formatSpeed(config.defaultPlaybackSpeed)}`;
             speedButton.addEventListener("click", function (event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -179,7 +180,7 @@
                 const nextIndex = (currentIndex + 1) % config.playbackSpeeds.length;
                 const nextValue = config.playbackSpeeds[nextIndex];
                 player.dataset.playbackRate = String(nextValue);
-                speedButton.textContent = `\u26A1 ${formatSpeed(nextValue)}`;
+                speedButton.textContent = `${SPEED_ICON} ${formatSpeed(nextValue)}`;
             });
             player.appendChild(speedButton);
         }
@@ -217,7 +218,7 @@
         if (speedButton) {
             lockButtonWidthToWidestLabel(
                 speedButton,
-                config.playbackSpeeds.map(v => `\u26A1 ${formatSpeed(v)}`),
+                config.playbackSpeeds.map(v => `${SPEED_ICON} ${formatSpeed(v)}`),
             );
         }
         if (repeatButton) {
