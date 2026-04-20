@@ -57,6 +57,11 @@
             android:icon="@drawable/ic_dark_mode_24"
             app:useSimpleSummaryProvider="true"
             search:ignore="true"/>
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="@string/high_contrast_key"
+            android:title="@string/high_contrast"
+            android:summary="@string/high_contrast_summary"/>
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/background_image_title" >
         <Preference

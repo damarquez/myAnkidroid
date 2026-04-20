@@ -170,6 +170,11 @@ class AppearanceSettingsFragment : SettingsFragment() {
                 ActivityCompat.recreate(requireActivity())
             }
         }
+
+        requirePreference<androidx.preference.SwitchPreferenceCompat>(R.string.high_contrast_key)
+            .setOnPreferenceChangeListener { _ ->
+                ActivityCompat.recreate(requireActivity())
+            }
     }
 
     private val backgroundImageResultLauncher =

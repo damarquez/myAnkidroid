@@ -1,6 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="UnusedResources,DuplicateCrowdInStrings">
 
+    <!--
+        High-contrast overlay applied on top of the active Day/Night theme when
+        the "High contrast" appearance toggle is on. Values tuned for e-ink
+        readers and bright-light use. Tweak freely; this only affects the app
+        chrome (toolbars, menus, dividers, text), not rendered cards.
+    -->
+    <style name="ThemeOverlay.HighContrast" parent="">
+        <!-- Text -->
+        <item name="android:textColorPrimary">#000000</item>
+        <item name="android:textColorSecondary">#1a1a1a</item>
+        <item name="android:textColorTertiary">#333333</item>
+        <item name="android:textColorHint">#4a4a4a</item>
+        <!-- Surfaces / backgrounds -->
+        <item name="colorSurface">#ffffff</item>
+        <item name="colorSurfaceVariant">#e6e6e6</item>
+        <item name="colorSurfaceContainer">#ffffff</item>
+        <item name="colorSurfaceContainerHigh">#e6e6e6</item>
+        <item name="colorSurfaceContainerHighest">#d9d9d9</item>
+        <item name="colorSurfaceContainerLow">#ffffff</item>
+        <item name="colorSurfaceContainerLowest">#ffffff</item>
+        <item name="android:colorBackground">#ffffff</item>
+        <!-- Foreground-on-surface -->
+        <item name="colorOnSurface">#000000</item>
+        <item name="colorOnSurfaceVariant">#000000</item>
+        <item name="colorOnBackground">#000000</item>
+        <!-- Controls / dividers -->
+        <item name="colorControlNormal">#000000</item>
+        <item name="colorControlActivated">#000000</item>
+        <item name="colorControlHighlight">#33000000</item>
+        <item name="colorOutline">#000000</item>
+        <item name="colorOutlineVariant">#000000</item>
+        <!-- Primary -->
+        <item name="colorPrimary">#000000</item>
+        <item name="colorOnPrimary">#ffffff</item>
+        <item name="colorPrimaryContainer">#000000</item>
+        <item name="colorOnPrimaryContainer">#ffffff</item>
+        <item name="colorPrimaryInverse">#ffffff</item>
+        <!-- Secondary (used by NavigationDrawer selected pill, chips, etc.) -->
+        <item name="colorSecondary">#000000</item>
+        <item name="colorOnSecondary">#ffffff</item>
+        <item name="colorSecondaryContainer">#000000</item>
+        <item name="colorOnSecondaryContainer">#ffffff</item>
+        <!-- Tertiary -->
+        <item name="colorTertiary">#000000</item>
+        <item name="colorOnTertiary">#ffffff</item>
+        <item name="colorTertiaryContainer">#000000</item>
+        <item name="colorOnTertiaryContainer">#ffffff</item>
+        <!-- Error -->
+        <item name="colorError">#8a0000</item>
+        <item name="colorOnError">#ffffff</item>
+        <item name="colorErrorContainer">#8a0000</item>
+        <item name="colorOnErrorContainer">#ffffff</item>
+        <!--
+            AnkiDroid-specific theme attributes. The grading buttons and the
+            nav drawer selected-item state use custom attrs (see attrs.xml) that
+            normally resolve to colored drawables / pastel accents. On e-ink
+            those quantize to light gray and disappear, so we force solid
+            black/white resources here.
+        -->
+        <!-- Grading buttons + Show Answer: solid black background, white text -->
+        <!-- Old reviewer (AbstractFlashcardViewer) uses *ButtonRef drawables and answerButtonTextColor -->
+        <item name="answerButtonTextColor">#ffffff</item>
+        <item name="againButtonRef">@drawable/footer_button_all_black</item>
+        <item name="hardButtonRef">@drawable/footer_button_all_black</item>
+        <item name="goodButtonRef">@drawable/footer_button_all_black</item>
+        <item name="easyButtonRef">@drawable/footer_button_all_black</item>
+        <!-- New reviewer (ReviewerFragment / view_answer_area.xml) uses these instead -->
+        <item name="againBackgroundColor">#000000</item>
+        <item name="hardBackgroundColor">#000000</item>
+        <item name="goodBackgroundColor">#000000</item>
+        <item name="easyBackgroundColor">#000000</item>
+        <item name="againTextColor">#ffffff</item>
+        <item name="hardTextColor">#ffffff</item>
+        <item name="goodTextColor">#ffffff</item>
+        <item name="easyTextColor">#ffffff</item>
+        <item name="showAnswerButtonBackground">#000000</item>
+        <item name="showAnswerColor">@color/black</item>
+        <!-- Navigation drawer: selected row is a solid black pill with white label -->
+        <item name="navDrawerItemColor">@color/drawer_item_text_high_contrast</item>
+        <item name="navDrawerItemBackgroundColor">@drawable/drawer_item_background_high_contrast</item>
+    </style>
+
     <style name="Theme_Dark.Launcher">
         <item name="android:windowBackground">@drawable/launch_screen</item>
     </style>

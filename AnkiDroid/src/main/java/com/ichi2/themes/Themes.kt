@@ -48,6 +48,11 @@ object Themes {
     fun setTheme(context: Context) {
         updateCurrentTheme(context)
         context.setTheme(currentTheme.styleResId)
+        if (PrefsRepository(context).highContrast) {
+            // Force the base theme to resolve (triggers lazy init) before overlaying,
+            // otherwise a subsequent setTheme() may replace the base rather than stack.
+            context.theme.applyStyle(R.style.ThemeOverlay_HighContrast, true)
+        }
     }
 
     fun setLegacyActionBar(context: Context) {

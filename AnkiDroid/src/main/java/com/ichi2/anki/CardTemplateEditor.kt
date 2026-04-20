@@ -219,6 +219,10 @@ open class CardTemplateEditor :
         }
 
         fragmented = !Prefs.forceSinglePaneLayout && binding.fragmentContainer?.isVisible == true
+        if (Prefs.forceSinglePaneLayout) {
+            binding.fragmentContainer?.isVisible = false
+            binding.cardTemplateEditorResizingDivider?.isVisible = false
+        }
 
         setNavigationBarColor(R.attr.alternativeBackgroundColor)
 
