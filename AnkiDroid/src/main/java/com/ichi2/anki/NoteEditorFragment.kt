@@ -3092,10 +3092,10 @@ class NoteEditorFragment :
             } else {
                 visibleParts.joinToString(" | ")
             }
-        return if (summary.length <= LINKED_NOTE_SUMMARY_MAX_LENGTH) {
+        return if (summary.length <= linkedNoteSummaryMaxLength) {
             summary
         } else {
-            summary.take(LINKED_NOTE_SUMMARY_MAX_LENGTH - 3) + "..."
+            summary.take(linkedNoteSummaryMaxLength - 3) + "..."
         }
     }
 
@@ -3956,7 +3956,7 @@ class NoteEditorFragment :
     private val helperStartsWithCjk = Regex("""^[\p{IsHan}]""")
     private val helperHiddenLineSuffix = Regex("""\s*\(\*\d?\)\s*$""")
     private val helperSpacesBeforeNewline = Regex("""[ \t]+\n""")
-    private val LINKED_NOTE_SUMMARY_MAX_LENGTH = 120
+    private val linkedNoteSummaryMaxLength = 120
 
     private inner class PropSearchSuggestionAdapter(
         context: Context,
