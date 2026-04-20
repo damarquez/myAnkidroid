@@ -7,6 +7,28 @@
   --card-background-color: white;
   --link-color: #00008B; /* Darkened blue for e-ink readability */
   --link-visited-color: #4A0072; /* Darkened purple for e-ink readability */
+  --note-link-color: #00008B;
+  --note-link-visited-color: #4A0072;
+  --note-link-underline-color: #00008B;
+
+  /* Native Audio Player Colors - Light Mode */
+  --ankidroid-audio-player-bg: #d9d9d9;
+  --ankidroid-audio-player-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --ankidroid-audio-button-bg: #f5f5f5;
+  --ankidroid-audio-button-color: #111;
+  --ankidroid-audio-button-hover-bg: #e6e6e6;
+  --ankidroid-audio-button-active-bg: #d0d0d0;
+  --ankidroid-audio-play-bg: #4a4a4a;
+  --ankidroid-audio-play-color: #fff;
+  --ankidroid-audio-play-hover-bg: #333;
+  --ankidroid-audio-play-active-bg: #7a1f1f;
+  --ankidroid-audio-play-active-color: #fff;
+  --ankidroid-audio-play-active-hover-bg: #621717;
+  --ankidroid-audio-segment-border: rgba(0, 0, 0, 0.25);
+  --ankidroid-audio-secondary-opacity: 1;
+  --ankidroid-audio-stop-bg: #8b2e2e;
+  --ankidroid-audio-stop-color: #fff;
+  --ankidroid-audio-stop-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 
   /* Custom Audio Player Colors */
   --audio-player-bg: #282a36; /* Dark background - this will remain dark */
@@ -46,6 +68,18 @@ a {
 
 a:visited {
   color: var(--link-visited-color);
+}
+
+a[href^="ankidroid-note://"] {
+  color: var(--note-link-color);
+  text-decoration: underline;
+  text-decoration-color: var(--note-link-underline-color);
+  text-underline-offset: 0.12em;
+  font-weight: 600;
+}
+
+a[href^="ankidroid-note://"]:visited {
+  color: var(--note-link-visited-color);
 }
 
 
@@ -427,6 +461,26 @@ a:visited {
   --card-background-color: #282a36; /* Dark background */
   --link-color: #B3E5FC; /* Lighter links for dark mode */
   --link-visited-color: #E3F2FD; /* Slightly different light blue, or use the same #90CAF9 */
+  --note-link-color: #B3E5FC;
+  --note-link-visited-color: #E3F2FD;
+  --note-link-underline-color: #B3E5FC;
+
+  /* Native Audio Player Colors - Dark Mode */
+  --ankidroid-audio-player-bg-night: #3b3b3b;
+  --ankidroid-audio-player-shadow-night: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ankidroid-audio-button-bg-night: #4a4a4a;
+  --ankidroid-audio-button-color-night: #f5f5f5;
+  --ankidroid-audio-button-hover-bg-night: #5a5a5a;
+  --ankidroid-audio-play-bg: #5f8f44;
+  --ankidroid-audio-play-color: #fff;
+  --ankidroid-audio-play-hover-bg: #4d7737;
+  --ankidroid-audio-play-active-bg: #b03a3a;
+  --ankidroid-audio-play-active-color: #fff;
+  --ankidroid-audio-play-active-hover-bg: #922f2f;
+  --ankidroid-audio-segment-border-night: rgba(255, 255, 255, 0.2);
+  --ankidroid-audio-secondary-opacity: 1;
+  --ankidroid-audio-stop-bg-night: #b03a3a;
+  --ankidroid-audio-stop-color-night: #fff;
 
 /* Field Label Colors for Dark Mode */
   --field-label-color: darkkhaki;

@@ -69,6 +69,9 @@
 
     function normalizeOriginField(value) {
         return String(value || "")
+            .normalize("NFKC")
+            .replace(/[\u200B-\u200D\u2060\uFEFF\u200E\u200F\u202A-\u202E]/g, "")
+            .replace(/\s+/g, " ")
             .trim()
             .toLowerCase();
     }
@@ -91,10 +94,23 @@
             const text = String(cls || "").trim();
             if (!text) continue;
             const lower = text.toLowerCase();
+            if (
+                lower === "field-container" ||
+                lower === "field-rich-content" ||
+                lower === "field-label"
+            ) {
+                continue;
+            }
             if (lower.endsWith("-field") && lower !== "field") {
                 return titleCaseToken(text.slice(0, -"-field".length));
             }
-            if (lower.startsWith("field-") && lower.length > "field-".length) {
+            if (
+                lower.startsWith("field-") &&
+                lower.length > "field-".length &&
+                lower !== "field-container" &&
+                lower !== "field-rich-content" &&
+                lower !== "field-label"
+            ) {
                 return titleCaseToken(text.slice("field-".length));
             }
         }

@@ -68,6 +68,7 @@ import androidx.fragment.app.commit
 import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -576,10 +577,19 @@ open class DeckPicker :
                     pullToSyncWrapper.isRefreshing = false
                     sync()
                 }
-                viewTreeObserver.addOnScrollChangedListener {
-                    pullToSyncWrapper.isEnabled = decksLayoutManager.findFirstCompletelyVisibleItemPosition() == 0
-                }
             }
+        deckPickerBinding.decks.addOnScrollListener(
+            object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(
+                    rv: RecyclerView,
+                    dx: Int,
+                    dy: Int,
+                ) {
+                    pullToSyncWrapper.isEnabled =
+                        decksLayoutManager.findFirstCompletelyVisibleItemPosition() == 0
+                }
+            },
+        )
         // Setup the FloatingActionButtons
         floatingActionMenu =
             DeckPickerFloatingActionMenu(this, binding, this).apply {

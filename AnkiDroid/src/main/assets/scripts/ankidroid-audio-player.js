@@ -47,6 +47,8 @@
                 defaultRepeatCount,
                 gapMs: Math.max(0, Number(parsed.gapMs) || 0),
                 showStopAllButton: parsed.showStopAllButton === true,
+                prefix: typeof parsed.prefix === "string" ? parsed.prefix : "",
+                suffix: typeof parsed.suffix === "string" ? parsed.suffix : "",
             };
             return config;
         } catch (e) {
@@ -113,6 +115,15 @@
             gapMs: String(gapMs),
         });
         return `${href}?${params.toString()}`;
+    }
+
+    function createAffixNode(text, className) {
+        if (!text) return null;
+        const span = document.createElement("span");
+        span.className = className;
+        span.textContent = text;
+        span.style.whiteSpace = "pre-wrap";
+        return span;
     }
 
     function createPlayer(anchor, config, index) {
@@ -194,7 +205,13 @@
 
         anchor.style.display = "none";
         anchor.dataset.ankidroidAudioEnhanced = "true";
-        anchor.insertAdjacentElement("afterend", player);
+        const fragment = document.createDocumentFragment();
+        const prefix = createAffixNode(config.prefix, "ankidroid-audio-prefix");
+        const suffix = createAffixNode(config.suffix, "ankidroid-audio-suffix");
+        if (prefix) fragment.appendChild(prefix);
+        fragment.appendChild(player);
+        if (suffix) fragment.appendChild(suffix);
+        anchor.parentNode.insertBefore(fragment, anchor.nextSibling);
 
         lockButtonWidthToWidestLabel(playButton, ["\u25B6", "\u25A0"]);
         if (speedButton) {

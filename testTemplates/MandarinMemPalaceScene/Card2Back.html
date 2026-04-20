@@ -120,7 +120,8 @@
   "repeatCounts": [1, 2, 3, 5, 10],
   "defaultRepeatCount": 3,
   "gapMs": 150,
-  "showStopAllButton": true
+  "showStopAllButton": true,
+  "prefix": "\n"
 }
 </script>
 
@@ -158,10 +159,28 @@
 
 
 <script id="ankidroid-nav-config" type="application/json">
-{
   // matchMode: "exact" | "partial"
   // openMode: "question" | "answer"
+  // Each section can be a single generic action, or a list of actions.
+  // navMode: "deck" | "app" (default: "deck")
+  // label controls the floating button text.
+  // If originField is present, those entries are shown only when the selection came from that field.
+  // If no originField-specific entries match, the generic entries are shown as fallback.
+  // fallbackField is optional and is searched only if the main field returns no result.
+  // app actions ignore deck/field/fallbackField/matchMode/prefix/suffix and use urlTemplate instead.
+{
   "character": [
+   { 
+      "label": "Prop",
+      "originField": "Reason",
+      "navMode": "deck",
+      "deck": "MandarinMP::Meta-Props",
+      "field": "Text",
+      "matchMode": "partial",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
     {
       "label": "Char",
       "navMode": "deck",
@@ -211,6 +230,7 @@
   ]
 }
 </script>
+
 
 
 

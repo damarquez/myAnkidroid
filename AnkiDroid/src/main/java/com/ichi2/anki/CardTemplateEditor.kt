@@ -1698,6 +1698,10 @@ open class CardTemplateEditor :
                   "defaultRepeatCount": 1,
                   // gapMs: delay between repetitions in milliseconds.
                   "gapMs": 150,
+                  // prefix / suffix: optional text shown immediately before/after each native audio player.
+                  // Use JSON escapes like "\\n" for newline and "\\t" for tab.
+                  "prefix": "",
+                  "suffix": "",
                   // showStopAllButton: shows a global Stop button for any audio playing on the card.
                   "showStopAllButton": false
                 }

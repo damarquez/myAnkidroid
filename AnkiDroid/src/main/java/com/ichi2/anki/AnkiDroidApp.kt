@@ -70,6 +70,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import shark.IgnoredReferenceMatcher
+import shark.ReferencePattern.StaticFieldPattern
 import timber.log.Timber
 import timber.log.Timber.DebugTree
 import java.util.Locale
@@ -142,7 +144,21 @@ open class AnkiDroidApp :
             LogType.PRODUCTION -> Timber.plant(ProductionCrashReportingTree())
         }
         if (BuildConfig.ENABLE_LEAK_CANARY) {
-            LeakCanaryConfiguration.setInitialConfigFor(this)
+            LeakCanaryConfiguration.setInitialConfigFor(
+                this,
+                knownMemoryLeaks =
+                    listOf(
+                        // Framework bug: ResourcesImpl caches a destroyed SystemJobService's
+                        // ContextImpl in a static field and never clears it. Not our code.
+                        IgnoredReferenceMatcher(
+                            pattern =
+                                StaticFieldPattern(
+                                    "android.content.res.ResourcesImpl",
+                                    "mAppContext",
+                                ),
+                        ),
+                    ),
+            )
         } else {
             LeakCanaryConfiguration.disable()
         }
