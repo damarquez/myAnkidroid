@@ -125,6 +125,7 @@ class TemplateManager {
         notetype: NotetypeJson? = null,
         template: CardTemplate? = null,
         private var fillEmpty: Boolean = false,
+        private var linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
     ) {
         @Suppress("ktlint:standard:backing-property-naming")
         private var _card: Card = card
@@ -146,7 +147,8 @@ class TemplateManager {
                 col: Collection,
                 card: Card,
                 browser: Boolean,
-            ): TemplateRenderContext = TemplateRenderContext(card, card.note(col), browser)
+                linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
+            ): TemplateRenderContext = TemplateRenderContext(card, card.note(col), browser, linkedNoteDisplayMode = linkedNoteDisplayMode)
 
             fun fromCardLayout(
                 note: Note,
@@ -218,14 +220,35 @@ class TemplateManager {
         }
 
         fun partiallyRender(col: Collection): PartiallyRenderedCard {
+            val linkedRelation = runCatching { resolveLinkedNoteRelation(col, _note) }.getOrNull()
+            val effectiveNote =
+                if (linkedRelation != null && linkedNoteDisplayMode == LinkedNoteDisplayMode.MERGED) {
+                    buildEffectiveLinkedNote(_note, linkedRelation)
+                } else if (linkedRelation != null && linkedRelation.config.linkedNoteField in _note) {
+                    _note.clone().apply {
+                        notetype = _note.notetype
+                        tags = _note.tags.toMutableList()
+                        fields = _note.fields.toMutableList()
+                        setItem(linkedRelation.config.linkedNoteField, "")
+                    }
+                } else {
+                    _note
+                }
             val proto =
                 col.run {
-                    if (_template != null) {
+                    if (_template != null || linkedRelation != null) {
+                        val renderTemplate =
+                            _template ?: run {
+                                val templateIndex = if (noteType.isStd) _card.ord else 0
+                                noteType.templates[templateIndex].deepClone().also {
+                                    it.setOrd(_card.ord)
+                                }
+                            }
                         // card layout screen
                         backend.renderUncommittedCardLegacy(
-                            _note.toBackendNote(),
+                            effectiveNote.toBackendNote(),
                             _card.ord,
-                            BackendUtils.toJsonBytes(_template!!),
+                            BackendUtils.toJsonBytes(renderTemplate),
                             fillEmpty,
                             true,
                         )

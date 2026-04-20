@@ -22,8 +22,10 @@ import anki.config.ConfigKey
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.CardOrdinal
 import com.ichi2.anki.libanki.Collection
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.TemplateManager.TemplateRenderContext.TemplateRenderOutput
 import com.ichi2.anki.libanki.template.MathJax
+import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
 import com.ichi2.anki.multimedia.expandSounds
 import com.ichi2.anki.preferences.sharedPrefs
 import com.ichi2.anki.reviewer.ReviewerCustomFonts
@@ -48,17 +50,20 @@ class AndroidCardRenderContext(
         col: Collection,
         card: Card,
         side: SingleCardSide,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
     ): RenderedCard {
         // obtain the libAnki-rendered card
-        var content: String = if (side == SingleCardSide.FRONT) card.question(col) else card.answer(col)
+        val renderOutput = card.renderOutput(col, linkedNoteDisplayMode = linkedNoteDisplayMode)
+        var content: String = if (side == SingleCardSide.FRONT) renderOutput.questionAndStyle() else renderOutput.answerAndStyle()
         // IRI-encodes media: `foo bar` -> `foo%20bar`
         content = col.media.escapeMediaFilenames(content)
         // produces either an <input> or <span>...</span> to denote typed input
         content = filterTypeAnswer(content, side)
+        content = injectLinkedNoteBanner(col, card, content, linkedNoteDisplayMode)
         // wraps content in <div id="qa">
         content = enrichWithQADiv(content)
         // expands [anki:q:1] to a play button
-        content = expandSounds(content, card.renderOutput(col), col)
+        content = expandSounds(content, renderOutput, col)
         // fixes an Android bug where font-weight:600 does not display
         content = CardAppearance.fixBoldStyle(content)
 

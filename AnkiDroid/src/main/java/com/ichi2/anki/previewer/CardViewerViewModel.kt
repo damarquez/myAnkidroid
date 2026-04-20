@@ -27,12 +27,15 @@ import com.ichi2.anki.cardviewer.CardMediaPlayer
 import com.ichi2.anki.cardviewer.MediaErrorHandler
 import com.ichi2.anki.launchCatchingIO
 import com.ichi2.anki.libanki.Card
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.TtsPlayer
+import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
 import com.ichi2.anki.multimedia.getAvTag
 import com.ichi2.anki.multimedia.replaceAvRefsWithPlayButtons
 import com.ichi2.anki.pages.AnkiServer
 import com.ichi2.anki.pages.PostRequestHandler
 import com.ichi2.anki.pages.PostRequestUri
+import com.ichi2.anki.reviewer.CardSide
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -56,6 +59,8 @@ abstract class CardViewerViewModel(
     val eval = MutableSharedFlow<String>()
 
     val showingAnswer = savedStateHandle.getMutableStateFlow(KEY_SHOWING_ANSWER, false)
+    val linkedNoteDisplayMode =
+        savedStateHandle.getMutableStateFlow(KEY_LINKED_NOTE_DISPLAY_MODE, LinkedNoteDisplayMode.MERGED.name)
 
     protected val cardMediaPlayer =
         CardMediaPlayer(
@@ -124,11 +129,35 @@ abstract class CardViewerViewModel(
     // This cancels it
     fun onVideoPaused() = cardMediaPlayer.onVideoPaused()
 
+    open fun toggleLinkedNoteDisplayMode() {
+        launchCatchingIO {
+            linkedNoteDisplayMode.emit(
+                if (currentLinkedNoteDisplayMode() == LinkedNoteDisplayMode.MERGED) {
+                    LinkedNoteDisplayMode.ORIGINAL.name
+                } else {
+                    LinkedNoteDisplayMode.MERGED.name
+                },
+            )
+            onLinkedNoteDisplayModeChanged()
+        }
+    }
+
     /* *********************************************************************************************
      *************************************** Internal methods ***************************************
      ********************************************************************************************* */
 
     protected abstract suspend fun typeAnsFilter(text: String): String
+
+    protected open suspend fun onLinkedNoteDisplayModeChanged() {
+        val side = if (showingAnswer.value) CardSide.ANSWER else CardSide.QUESTION
+        if (showingAnswer.value) showAnswer() else showQuestion()
+        cardMediaPlayer.loadCardAvTags(currentCard.await(), currentLinkedNoteDisplayMode())
+        cardMediaPlayer.autoplayAllForSide(side)
+    }
+
+    protected fun currentLinkedNoteDisplayMode(): LinkedNoteDisplayMode =
+        runCatching { LinkedNoteDisplayMode.valueOf(linkedNoteDisplayMode.value) }
+            .getOrDefault(LinkedNoteDisplayMode.MERGED)
 
     private suspend fun bodyClass() = bodyClassForCardOrd(currentCard.await().ord)
 
@@ -139,7 +168,10 @@ abstract class CardViewerViewModel(
     suspend fun prepareCardTextForDisplay(text: String): String =
         replaceAvRefsWithPlayButtons(
             text = withCol { media.escapeMediaFilenames(text) },
-            renderOutput = currentCard.await().let { card -> withCol { card.renderOutput(this) } },
+            renderOutput =
+                currentCard.await().let { card ->
+                    withCol { card.renderOutput(this, linkedNoteDisplayMode = currentLinkedNoteDisplayMode()) }
+                },
         )
 
     protected open suspend fun showQuestion() {
@@ -147,10 +179,27 @@ abstract class CardViewerViewModel(
         showingAnswer.emit(false)
 
         val card = currentCard.await()
-        val questionData = withCol { card.question(this) }
+        val questionData =
+            withCol {
+                injectLinkedNoteBanner(
+                    this,
+                    card,
+                    card.question(this, linkedNoteDisplayMode = currentLinkedNoteDisplayMode()),
+                    currentLinkedNoteDisplayMode(),
+                )
+            }
         val question = mungeQA(questionData)
         val answer =
-            withCol { media.escapeMediaFilenames(card.answer(this)) }
+            withCol {
+                media.escapeMediaFilenames(
+                    injectLinkedNoteBanner(
+                        this,
+                        card,
+                        card.answer(this, linkedNoteDisplayMode = currentLinkedNoteDisplayMode()),
+                        currentLinkedNoteDisplayMode(),
+                    ),
+                )
+            }
 
         eval.emit("_showQuestion(${Json.encodeToString(question)}, ${Json.encodeToString(answer)}, '${bodyClass()}');")
     }
@@ -169,7 +218,15 @@ abstract class CardViewerViewModel(
         mediaErrorHandler.onCardSideChange()
 
         val card = currentCard.await()
-        val answerData = withCol { card.answer(this) }
+        val answerData =
+            withCol {
+                injectLinkedNoteBanner(
+                    this,
+                    card,
+                    card.answer(this, linkedNoteDisplayMode = currentLinkedNoteDisplayMode()),
+                    currentLinkedNoteDisplayMode(),
+                )
+            }
         val answer = mungeQA(answerData)
 
         eval.emit("_showAnswer(${Json.encodeToString(answer)}, '${bodyClass()}');")
@@ -198,5 +255,6 @@ abstract class CardViewerViewModel(
 
     companion object {
         private const val KEY_SHOWING_ANSWER = "showingAnswer"
+        private const val KEY_LINKED_NOTE_DISPLAY_MODE = "linkedNoteDisplayMode"
     }
 }

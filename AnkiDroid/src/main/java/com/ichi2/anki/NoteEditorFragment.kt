@@ -127,6 +127,7 @@ import com.ichi2.anki.libanki.NotetypeJson
 import com.ichi2.anki.libanki.Notetypes
 import com.ichi2.anki.libanki.Utils
 import com.ichi2.anki.libanki.clozeNumbersInNote
+import com.ichi2.anki.libanki.parseTemplateLinkedNoteConfig
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.SelectableDeck
 import com.ichi2.anki.multimedia.AudioRecordingFragment
@@ -2550,6 +2551,7 @@ class NoteEditorFragment :
             )
         }
         addFrequencyLookupButton()
+        addLinkedNoteButton()
         addGenerateAzureTtsButton()
         addGenerateAiTextButton()
         addSetSearchButton()
@@ -2616,6 +2618,16 @@ class NoteEditorFragment :
         val button =
             toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_star_black_24)) {
                 fillFrequencyInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addLinkedNoteButton() {
+        val label = getString(R.string.note_editor_linked_note)
+        val button =
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_link)) {
+                chooseLinkedNoteForCurrentField()
             }
         button.contentDescription = label
         button.setTooltipTextCompat(label)
@@ -2954,6 +2966,167 @@ class NoteEditorFragment :
             }
             showSnackbar(getString(R.string.note_editor_frequency_lookup_applied, targetFieldName, lookup.term))
         }
+    }
+
+    private fun chooseLinkedNoteForCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_linked_note_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_linked_note_no_field))
+            return
+        }
+
+        val config =
+            try {
+                parseTemplateLinkedNoteConfig(editorNote!!.notetype)
+            } catch (e: IllegalArgumentException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_linked_note_invalid_config))
+                return
+            }
+        if (config == null) {
+            showSnackbar(getString(R.string.note_editor_linked_note_invalid_config))
+            return
+        }
+        if (config.linkedNoteField != currentFieldName) {
+            showSnackbar(getString(R.string.note_editor_linked_note_wrong_field, config.linkedNoteField))
+            return
+        }
+
+        val input =
+            EditText(requireContext()).apply {
+                setText("")
+                hint = getString(R.string.note_editor_linked_note_search_hint)
+            }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.note_editor_linked_note_search_title)
+            .setView(input)
+            .setPositiveButton(R.string.card_browser_cram_search) { _, _ ->
+                val query =
+                    input.text
+                        ?.toString()
+                        .orEmpty()
+                        .trim()
+                if (query.isBlank()) {
+                    showSnackbar(getString(R.string.note_editor_linked_note_no_query))
+                    return@setPositiveButton
+                }
+                launchCatchingTask {
+                    val suggestions = loadLinkedNoteSuggestions(query, config)
+                    if (suggestions.isEmpty()) {
+                        showSnackbar(getString(R.string.note_editor_linked_note_no_matches, query))
+                        return@launchCatchingTask
+                    }
+                    showLinkedNotePicker(currentField, suggestions)
+                }
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private suspend fun loadLinkedNoteSuggestions(
+        query: String,
+        config: com.ichi2.anki.libanki.LinkedNoteConfig,
+    ): List<LinkedNoteSuggestion> =
+        withCol {
+            val noteIds =
+                runCatching { findNotes(buildLinkedNoteSearchQuery(config, query)) }
+                    .getOrElse {
+                        val fallbackQuery = buildLinkedNoteFallbackQuery(config, query)
+                        findNotes(fallbackQuery)
+                    }
+
+            noteIds
+                .mapNotNull { noteId ->
+                    runCatching { getNote(noteId) }.getOrNull()
+                }.filter { note ->
+                    note.noteTypeId == editorNote!!.noteTypeId && note.guId != editorNote!!.guId
+                }.map { note ->
+                    LinkedNoteSuggestion(
+                        guid = note.guId.orEmpty(),
+                        summary = buildLinkedNoteSummary(note, config),
+                    )
+                }.filter { it.guid.isNotBlank() }
+                .distinctBy { it.guid }
+                .take(config.maxResults)
+        }
+
+    private fun buildLinkedNoteSummary(
+        note: Note,
+        config: com.ichi2.anki.libanki.LinkedNoteConfig,
+    ): String {
+        val configuredParts =
+            config.labelFields
+                .mapNotNull { fieldName ->
+                    if (!note.contains(fieldName)) {
+                        null
+                    } else {
+                        stripHtml(note.getItem(fieldName)).trim().takeIf { it.isNotBlank() }
+                    }
+                }
+        val visibleParts =
+            if (configuredParts.isNotEmpty()) {
+                configuredParts.take(2)
+            } else {
+                note
+                    .items()
+                    .mapNotNull { item ->
+                        val fieldName = item[0]
+                        val value = stripHtml(item[1]).trim()
+                        if (fieldName == config.linkedNoteField || value.isBlank()) {
+                            null
+                        } else {
+                            value
+                        }
+                    }.take(2)
+            }
+        val summary =
+            if (visibleParts.isEmpty()) {
+                note.guId.orEmpty()
+            } else {
+                visibleParts.joinToString(" | ")
+            }
+        return if (summary.length <= LINKED_NOTE_SUMMARY_MAX_LENGTH) {
+            summary
+        } else {
+            summary.take(LINKED_NOTE_SUMMARY_MAX_LENGTH - 3) + "..."
+        }
+    }
+
+    private fun buildLinkedNoteSearchQuery(
+        config: com.ichi2.anki.libanki.LinkedNoteConfig,
+        query: String,
+    ): String {
+        val terms = mutableListOf<String>()
+        config.deck?.let { terms += buildQuotedSearchTerm("deck:$it") }
+        config.searchField?.let { terms += buildQuotedSearchTerm("$it:*${query.trim()}*") }
+        if (terms.isEmpty()) {
+            terms += buildQuotedSearchTerm(query.trim())
+        }
+        return terms.joinToString(separator = " ")
+    }
+
+    private fun buildLinkedNoteFallbackQuery(
+        config: com.ichi2.anki.libanki.LinkedNoteConfig,
+        query: String,
+    ): String = config.deck?.let { buildQuotedSearchTerm("deck:$it") } ?: query.trim()
+
+    private fun showLinkedNotePicker(
+        currentField: FieldEditText,
+        suggestions: List<LinkedNoteSuggestion>,
+    ) {
+        val items = suggestions.map { it.summary }.toTypedArray()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.note_editor_linked_note_pick_title)
+            .setItems(items) { _, which ->
+                val suggestion = suggestions.getOrNull(which) ?: return@setItems
+                currentField.setText(suggestion.guid)
+                currentField.setSelection(suggestion.guid.length)
+                showSnackbar(getString(R.string.note_editor_linked_note_applied))
+            }.show()
     }
 
     private fun insertPropInCurrentField() {
@@ -3755,11 +3928,17 @@ class NoteEditorFragment :
         val isOverflow: Boolean = false,
     )
 
+    private data class LinkedNoteSuggestion(
+        val guid: String,
+        val summary: String,
+    )
+
     private val helperNumberedChineseLine = Regex("""^(\d+(?:\.\d+)*)\.\s*((?:\[sound:[^\]\r\n]+\]\s*)*)([\p{IsHan}].*)$""")
     private val helperNumberOnlyLine = Regex("""^(\d+(?:\.\d+)*)\.\s*(?:\[sound:[^\]\r\n]+\]\s*)*$""")
     private val helperStartsWithCjk = Regex("""^[\p{IsHan}]""")
     private val helperHiddenLineSuffix = Regex("""\s*\(\*\d?\)\s*$""")
     private val helperSpacesBeforeNewline = Regex("""[ \t]+\n""")
+    private val LINKED_NOTE_SUMMARY_MAX_LENGTH = 120
 
     private inner class PropSearchSuggestionAdapter(
         context: Context,

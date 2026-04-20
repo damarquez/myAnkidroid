@@ -103,7 +103,7 @@ class PreviewerViewModel(
                 // * after recreation (ViewModel did not exist)
                 // if the ViewModel existed, we want to continue playing audio
                 // if not, we want to setup the sound player
-                cardMediaPlayer.ensureAvTagsLoaded(currentCard.await())
+                cardMediaPlayer.ensureAvTagsLoaded(currentCard.await(), currentLinkedNoteDisplayMode())
             } else {
                 showCard(showAnswerOnReload)
                 loadAndPlaySounds()
@@ -300,14 +300,19 @@ class PreviewerViewModel(
                 showingAnswer.value -> CardSide.ANSWER
                 else -> CardSide.QUESTION
             }
-        cardMediaPlayer.loadCardAvTags(currentCard.await())
+        cardMediaPlayer.loadCardAvTags(currentCard.await(), currentLinkedNoteDisplayMode())
         cardMediaPlayer.autoplayAllForSide(side)
+    }
+
+    override suspend fun onLinkedNoteDisplayModeChanged() {
+        showCard(showAnswer = backSideOnly.value || showingAnswer.value)
+        loadAndPlaySounds()
     }
 
     /** From the [desktop code](https://github.com/ankitects/anki/blob/1ff55475b93ac43748d513794bcaabd5d7df6d9d/qt/aqt/reviewer.py#L671) */
     override suspend fun typeAnsFilter(text: String): String =
         if (showingAnswer.value) {
-            val typeAnswer = TypeAnswer.getInstance(currentCard.await(), text)
+            val typeAnswer = TypeAnswer.getInstance(currentCard.await(), text, currentLinkedNoteDisplayMode())
             typeAnswer?.answerFilter() ?: text
         } else {
             TypeAnswer.removeTags(text)

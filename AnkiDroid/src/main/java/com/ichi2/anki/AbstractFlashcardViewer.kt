@@ -125,6 +125,7 @@ import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.Collection
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.Decks
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.SoundOrVideoTag
 import com.ichi2.anki.libanki.TTSTag
 import com.ichi2.anki.libanki.TtsPlayer
@@ -233,6 +234,7 @@ abstract class AbstractFlashcardViewer :
 
     /** Generates HTML content  */
     private var cardRenderContext: AndroidCardRenderContext? = null
+    private var linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED
 
     // Default short animation duration, provided by Android framework
     private var shortAnimDuration = 0
@@ -1344,7 +1346,7 @@ abstract class AbstractFlashcardViewer :
         backButtonPressedToReturn = false
         setInterface()
         typeAnswer?.input = ""
-        typeAnswer?.updateInfo(getColUnsafe, currentCard!!, resources)
+        typeAnswer?.updateInfo(getColUnsafe, currentCard!!, resources, linkedNoteDisplayMode)
         if (typeAnswer?.validForEditText() == true) {
             // Show text entry based on if the user wants to write the answer
             answerField?.visibility = View.VISIBLE
@@ -1352,7 +1354,7 @@ abstract class AbstractFlashcardViewer :
         } else {
             answerField?.visibility = View.GONE
         }
-        val content = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.FRONT)
+        val content = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.FRONT, linkedNoteDisplayMode)
         automaticAnswer.onDisplayQuestion()
         launchCatchingTask {
             if (!automaticAnswerShouldWaitForMedia()) {
@@ -1383,7 +1385,7 @@ abstract class AbstractFlashcardViewer :
 
         // TODO needs testing: changing a card's model without flipping it back to the front
         //  (such as editing a card, then editing the card template)
-        typeAnswer!!.updateInfo(getColUnsafe, currentCard!!, resources)
+        typeAnswer!!.updateInfo(getColUnsafe, currentCard!!, resources, linkedNoteDisplayMode)
 
         // Explicitly hide the soft keyboard. It *should* be hiding itself automatically,
         // but sometimes failed to do so (e.g. if an OnKeyListener is attached).
@@ -1398,7 +1400,7 @@ abstract class AbstractFlashcardViewer :
             typeAnswer!!.input = answerField!!.text.toString()
         }
         isSelecting = false
-        val answerContent = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.BACK)
+        val answerContent = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.BACK, linkedNoteDisplayMode)
         automaticAnswer.onDisplayAnswer()
         launchCatchingTask {
             if (!automaticAnswerShouldWaitForMedia()) {
@@ -1463,7 +1465,7 @@ abstract class AbstractFlashcardViewer :
         Timber.d("updateCard()")
         // TODO: This doesn't need to be blocking
         runBlocking {
-            cardMediaPlayer.loadCardAvTags(currentCard!!)
+            cardMediaPlayer.loadCardAvTags(currentCard!!, linkedNoteDisplayMode)
         }
         cardContent = content.html
         fillFlashcard()
@@ -1980,14 +1982,14 @@ abstract class AbstractFlashcardViewer :
      * @see refreshIfRequired - calls through to [updateCurrentCard]
      */
     private fun reloadWebViewContent() {
-        currentCard?.renderOutput(getColUnsafe, reload = true, browser = false)
+        currentCard?.renderOutput(getColUnsafe, reload = true, browser = false, linkedNoteDisplayMode = linkedNoteDisplayMode)
         if (!isDisplayingAnswer) {
             Timber.d("displayCardQuestion()")
             displayAnswer = false
             backButtonPressedToReturn = false
             setInterface()
             typeAnswer?.input = ""
-            typeAnswer?.updateInfo(getColUnsafe, currentCard!!, resources)
+            typeAnswer?.updateInfo(getColUnsafe, currentCard!!, resources, linkedNoteDisplayMode)
             if (typeAnswer?.validForEditText() == true) {
                 // Show text entry based on if the user wants to write the answer
                 answerField?.visibility = View.VISIBLE
@@ -1995,7 +1997,7 @@ abstract class AbstractFlashcardViewer :
             } else {
                 answerField?.visibility = View.GONE
             }
-            val content = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.FRONT)
+            val content = cardRenderContext!!.renderCard(getColUnsafe, currentCard!!, SingleCardSide.FRONT, linkedNoteDisplayMode)
             automaticAnswer.onDisplayQuestion()
             updateCard(content)
             hideEaseButtons()
@@ -2006,6 +2008,16 @@ abstract class AbstractFlashcardViewer :
         } else {
             displayCardAnswer()
         }
+    }
+
+    private fun toggleLinkedNoteDisplayMode() {
+        linkedNoteDisplayMode =
+            if (linkedNoteDisplayMode == LinkedNoteDisplayMode.MERGED) {
+                LinkedNoteDisplayMode.ORIGINAL
+            } else {
+                LinkedNoteDisplayMode.MERGED
+            }
+        redrawCard()
     }
 
     /** Fixing bug 720: <input></input> focus, thanks to pablomouzo on android issue 7189  */
@@ -2511,6 +2523,11 @@ abstract class AbstractFlashcardViewer :
             // card.html reload
             if (url.startsWith("signal:reload_card_html")) {
                 redrawCard()
+                return true
+            }
+
+            if (url.startsWith("signal:toggle_linked_note_mode")) {
+                toggleLinkedNoteDisplayMode()
                 return true
             }
 

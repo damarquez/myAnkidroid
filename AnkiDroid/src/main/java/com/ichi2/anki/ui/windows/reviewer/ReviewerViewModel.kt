@@ -537,7 +537,7 @@ class ReviewerViewModel(
 
     private suspend fun loadAndPlayMedia(side: CardSide) {
         Timber.v("ReviewerViewModel::loadAndPlaySounds")
-        cardMediaPlayer.loadCardAvTags(currentCard.await())
+        cardMediaPlayer.loadCardAvTags(currentCard.await(), currentLinkedNoteDisplayMode())
         cardMediaPlayer.autoplayAllForSide(side)
     }
 
@@ -586,7 +586,7 @@ class ReviewerViewModel(
 
     override suspend fun typeAnsFilter(text: String): String {
         Timber.v("ReviewerViewModel::typeAnsFilter")
-        val typeAnswer = TypeAnswer.getInstance(currentCard.await(), text)
+        val typeAnswer = TypeAnswer.getInstance(currentCard.await(), text, currentLinkedNoteDisplayMode())
         return if (showingAnswer.value) {
             typeAnswerFlow.emit(null)
             typeAnswer?.answerFilter(typedAnswer) ?: text
@@ -783,7 +783,7 @@ class ReviewerViewModel(
                 changes.noteText -> {
                     val card = currentCard.await()
                     withCol { card.load(this) }
-                    cardMediaPlayer.loadCardAvTags(card)
+                    cardMediaPlayer.loadCardAvTags(card, currentLinkedNoteDisplayMode())
                     updateMarkIcon()
                     if (showingAnswer.value) {
                         showAnswer()

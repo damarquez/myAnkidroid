@@ -20,6 +20,9 @@ import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.Field
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
+import com.ichi2.anki.libanki.buildEffectiveLinkedNote
+import com.ichi2.anki.libanki.resolveLinkedNoteRelation
 import com.ichi2.anki.servicelayer.LanguageHintService
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import org.intellij.lang.annotations.Language
@@ -71,6 +74,7 @@ class TypeAnswer private constructor(
         suspend fun getInstance(
             card: Card,
             text: String,
+            linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
         ): TypeAnswer? {
             val match = typeAnsRe.find(text) ?: return null
             val rawField = match.groups[1]?.value ?: return null
@@ -87,7 +91,13 @@ class TypeAnswer private constructor(
                 }
             val fields = withCol { card.noteType(this).fields }
             val typeAnswerField = fields.firstOrNull { it.name == typeAnsFieldName } ?: return null
-            val expectedAnswer = getExpectedTypeInAnswer(card, rawField = rawField, fieldName = typeAnsFieldName)
+            val expectedAnswer =
+                getExpectedTypeInAnswer(
+                    card,
+                    rawField = rawField,
+                    fieldName = typeAnsFieldName,
+                    linkedNoteDisplayMode = linkedNoteDisplayMode,
+                )
 
             return TypeAnswer(
                 text = text,
@@ -106,8 +116,19 @@ class TypeAnswer private constructor(
             card: Card,
             rawField: String,
             fieldName: String,
+            linkedNoteDisplayMode: LinkedNoteDisplayMode,
         ): String {
-            val expected = withCol { card.note(this@withCol).getItem(fieldName) }
+            val expected =
+                withCol {
+                    val note = card.note(this@withCol)
+                    val effectiveNote =
+                        if (linkedNoteDisplayMode == LinkedNoteDisplayMode.MERGED) {
+                            resolveLinkedNoteRelation(this, note)?.let { buildEffectiveLinkedNote(note, it) } ?: note
+                        } else {
+                            note
+                        }
+                    effectiveNote.getItem(fieldName)
+                }
             return if (rawField.startsWith("cloze:")) {
                 val clozeIdx = card.ord + 1
                 withCol {

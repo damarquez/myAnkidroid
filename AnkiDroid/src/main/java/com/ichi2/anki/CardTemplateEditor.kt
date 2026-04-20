@@ -1059,6 +1059,8 @@ open class CardTemplateEditor :
             menu.findItem(R.id.action_insert_prop_search_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_actor_search_control).isVisible = isInsertFieldItemVisible
             menu.findItem(R.id.action_insert_set_search_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_frequency_control).isVisible = isInsertFieldItemVisible
+            menu.findItem(R.id.action_insert_linked_note_control).isVisible = isInsertFieldItemVisible
         }
 
         @NeedsTest("Notetype is restored to stock kind")
@@ -1143,6 +1145,11 @@ open class CardTemplateEditor :
                 R.id.action_insert_frequency_control -> {
                     Timber.i("CardTemplateEditor:: Insert frequency control button pressed")
                     insertField(FREQUENCY_CONTROL_TEMPLATE)
+                    return true
+                }
+                R.id.action_insert_linked_note_control -> {
+                    Timber.i("CardTemplateEditor:: Insert linked note control button pressed")
+                    insertField(LINKED_NOTE_CONTROL_TEMPLATE)
                     return true
                 }
                 R.id.action_delete -> {
@@ -1822,6 +1829,25 @@ open class CardTemplateEditor :
                     "format": "rankAndTerm"
                   }
                 ]
+                </script>
+
+                """.trimIndent()
+
+            private val LINKED_NOTE_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-linked-note-config" type="application/json">
+                {
+                  // Field that stores the GUID of another note to visually inherit blank fields from.
+                  "linkedNoteField": "Linked Note",
+                  // Optional: deck to search in when choosing a linked note.
+                  "deck": "MandarinMP::Main",
+                  // Optional: field searched with the typed query in the chooser.
+                  "searchField": "Front",
+                  // Optional: fields shown in the picker summary. Falls back to the first non-empty visible fields.
+                  "labelFields": ["Front", "Back"],
+                  // Optional: maximum number of rows shown in the picker.
+                  "maxResults": 12
+                }
                 </script>
 
                 """.trimIndent()

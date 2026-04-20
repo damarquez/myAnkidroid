@@ -256,6 +256,39 @@ scale up, but not down.  */
   color: #fff;
 }
 
+.ankidroid-linked-note-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 0.75em;
+  padding: 0.45em 0.65em;
+  border-radius: 10px;
+  background: #eef4ff;
+  color: #1f2a44;
+  font-size: 0.9em;
+}
+
+.ankidroid-linked-note-label {
+  font-weight: 600;
+}
+
+.ankidroid-linked-note-toggle {
+  flex: 0 0 auto;
+  color: #0b57d0;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.night_mode .ankidroid-linked-note-banner {
+  background: #243043;
+  color: #eef4ff;
+}
+
+.night_mode .ankidroid-linked-note-toggle {
+  color: #9ec1ff;
+}
+
 .ankidroid-hidden-text-wrapper {
   display: flex;
   align-items: flex-start;

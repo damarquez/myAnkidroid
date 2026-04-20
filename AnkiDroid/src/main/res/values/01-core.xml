@@ -146,6 +146,7 @@
     <string name="card_template_editor_insert_actor_search_control" maxLength="28">Insert actor search control</string>
     <string name="card_template_editor_insert_set_search_control" maxLength="28">Insert set search control</string>
     <string name="card_template_editor_insert_frequency_control" maxLength="28">Insert frequency control</string>
+    <string name="card_template_editor_insert_linked_note_control" maxLength="28">Insert linked note control</string>
     <string name="card_template_editor_select_field">Select field</string>
     <string name="note_editor_tts_generate">Generate Azure audio</string>
     <string name="note_editor_tts_no_field">Tap inside a field first</string>
@@ -211,6 +212,16 @@
     <string name="note_editor_frequency_lookup_not_found">No ranking result was found for â€œ%1$sâ€</string>
     <string name="note_editor_frequency_lookup_applied">Filled %1$s with ranking for %2$s</string>
     <string name="note_editor_frequency_lookup_in_progress">Looking up word rankingâ€¦</string>
+    <string name="note_editor_linked_note">Choose linked note</string>
+    <string name="note_editor_linked_note_no_field">Tap inside the linked note field first</string>
+    <string name="note_editor_linked_note_invalid_config">Invalid ankidroid-linked-note-config in the card template</string>
+    <string name="note_editor_linked_note_wrong_field">This helper only works in the configured linked note field: %1$s</string>
+    <string name="note_editor_linked_note_search_title">Search linked note</string>
+    <string name="note_editor_linked_note_search_hint">Type a note search</string>
+    <string name="note_editor_linked_note_no_query">Enter a search term first</string>
+    <string name="note_editor_linked_note_no_matches">No notes matched “%1$s”</string>
+    <string name="note_editor_linked_note_pick_title">Pick a linked note</string>
+    <string name="note_editor_linked_note_applied">Linked note set</string>
     <string name="pref_word_ranking_setup_in_progress">Setting up word rankingâ€¦</string>
     <string name="pref_word_ranking_setup_done">Word ranking is ready with %1$d entries</string>
     <string name="pref_word_ranking_setup_status_not_ready">Bundled ranking data is not set up yet</string>

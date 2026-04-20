@@ -115,6 +115,7 @@ open class Card : Cloneable {
     private var lastReviewTimeSecs: Long? = null
 
     var renderOutput: TemplateRenderOutput? = null
+    private var renderOutputLinkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED
     var note: Note? = null
 
     constructor(card: BackendCard) {
@@ -196,10 +197,14 @@ open class Card : Cloneable {
         col: Collection,
         reload: Boolean = false,
         browser: Boolean = false,
-    ): String = renderOutput(col, reload, browser).questionAndStyle()
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
+    ): String = renderOutput(col, reload, browser, linkedNoteDisplayMode).questionAndStyle()
 
     @LibAnkiAlias("answer")
-    fun answer(col: Collection): String = renderOutput(col).answerAndStyle()
+    fun answer(
+        col: Collection,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
+    ): String = renderOutput(col, linkedNoteDisplayMode = linkedNoteDisplayMode).answerAndStyle()
 
     @LibAnkiAlias("question_av_tags")
     fun questionAvTags(col: Collection): List<AvTag> = renderOutput(col).questionAvTags
@@ -215,9 +220,14 @@ open class Card : Cloneable {
         col: Collection,
         reload: Boolean = false,
         browser: Boolean = false,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
     ): TemplateRenderOutput {
-        if (renderOutput == null || reload) {
-            renderOutput = TemplateManager.TemplateRenderContext.fromExistingCard(col, this, browser).render(col)
+        if (renderOutput == null || reload || renderOutputLinkedNoteDisplayMode != linkedNoteDisplayMode) {
+            renderOutput =
+                TemplateManager.TemplateRenderContext
+                    .fromExistingCard(col, this, browser, linkedNoteDisplayMode)
+                    .render(col)
+            renderOutputLinkedNoteDisplayMode = linkedNoteDisplayMode
         }
         return renderOutput!!
     }

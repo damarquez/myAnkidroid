@@ -23,6 +23,9 @@ import com.ichi2.anki.CollectionManager
 import com.ichi2.anki.R
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.Collection
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
+import com.ichi2.anki.libanki.buildEffectiveLinkedNote
+import com.ichi2.anki.libanki.resolveLinkedNoteRelation
 import com.ichi2.anki.servicelayer.LanguageHint
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import org.intellij.lang.annotations.Language
@@ -84,10 +87,11 @@ class TypeAnswer(
         col: Collection,
         card: Card,
         res: Resources,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
     ) {
         combining = true
         correct = null
-        val q = card.question(col)
+        val q = card.question(col, linkedNoteDisplayMode = linkedNoteDisplayMode)
         val m = PATTERN.matcher(q)
         var clozeIdx = 0
         if (!m.find()) {
@@ -108,7 +112,14 @@ class TypeAnswer(
         for (fld in card.noteType(col).fields) {
             val name = fld.name
             if (name == fldTag) {
-                correct = card.note(col).getItem(name)
+                val note = card.note(col)
+                val effectiveNote =
+                    if (linkedNoteDisplayMode == LinkedNoteDisplayMode.MERGED) {
+                        resolveLinkedNoteRelation(col, note)?.let { buildEffectiveLinkedNote(note, it) } ?: note
+                    } else {
+                        note
+                    }
+                correct = effectiveNote.getItem(name)
                 if (clozeIdx != 0) {
                     // narrow to cloze
                     correct = contentForCloze(correct!!, clozeIdx)

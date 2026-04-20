@@ -212,6 +212,13 @@ abstract class CardViewerFragment(
                 "stopsound" -> viewModel.stopSoundFromUrl(url.toString())
                 "videoended" -> viewModel.onVideoFinished()
                 "videopause" -> viewModel.onVideoPaused()
+                "signal" -> {
+                    if (url.toString() == "signal:toggle_linked_note_mode") {
+                        viewModel.toggleLinkedNoteDisplayMode()
+                    } else {
+                        return false
+                    }
+                }
                 "tts-voices" -> TtsVoicesDialogFragment().show(childFragmentManager, null)
                 "android-app" -> handleIntentUrl(url, Intent.URI_ANDROID_APP_SCHEME)
                 "intent" -> handleIntentUrl(url, Intent.URI_INTENT_SCHEME)

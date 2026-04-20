@@ -32,6 +32,7 @@ import com.ichi2.anki.cardviewer.MediaErrorBehavior.STOP_MEDIA
 import com.ichi2.anki.common.annotations.NeedsTest
 import com.ichi2.anki.libanki.AvTag
 import com.ichi2.anki.libanki.Card
+import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.SoundOrVideoTag
 import com.ichi2.anki.libanki.TTSTag
 import com.ichi2.anki.libanki.TtsPlayer
@@ -134,10 +135,13 @@ class CardMediaPlayer : Closeable {
         onMediaGroupCompleted = listener
     }
 
-    suspend fun loadCardAvTags(card: Card) {
+    suspend fun loadCardAvTags(
+        card: Card,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
+    ) {
         Timber.i("loading av tags for card %d", card.id)
         stop()
-        val renderOutput = withCol { card.renderOutput(this) }
+        val renderOutput = withCol { card.renderOutput(this, linkedNoteDisplayMode = linkedNoteDisplayMode) }
         val autoPlay = withCol { card.autoplay(this) }
         this.questionAvTags = renderOutput.questionAvTags
         this.answerAvTags = renderOutput.answerAvTags
@@ -158,11 +162,14 @@ class CardMediaPlayer : Closeable {
      *
      * Does not affect playback if they are
      */
-    suspend fun ensureAvTagsLoaded(card: Card) {
+    suspend fun ensureAvTagsLoaded(
+        card: Card,
+        linkedNoteDisplayMode: LinkedNoteDisplayMode = LinkedNoteDisplayMode.MERGED,
+    ) {
         if (config?.appliesTo(card) == true) return
 
         Timber.i("loading sounds for card %d", card.id)
-        val renderOutput = withCol { card.renderOutput(this) }
+        val renderOutput = withCol { card.renderOutput(this, linkedNoteDisplayMode = linkedNoteDisplayMode) }
         this.questionAvTags = renderOutput.questionAvTags
         this.answerAvTags = renderOutput.answerAvTags
 
