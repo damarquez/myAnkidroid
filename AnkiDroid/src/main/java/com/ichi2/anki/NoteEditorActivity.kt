@@ -85,7 +85,7 @@ class NoteEditorActivity :
     private var refreshPreviewerJob: Job? = null
 
     val fragmented: Boolean
-        get() = previewerFrame?.isVisible == true
+        get() = !Prefs.forceSinglePaneLayout && previewerFrame?.isVisible == true
 
     private lateinit var binding: ActivityNoteEditorBinding
 
@@ -102,6 +102,12 @@ class NoteEditorActivity :
         setContentView(binding.root)
 
         previewerFrame = binding.previewerFrame
+        if (Prefs.forceSinglePaneLayout) {
+            binding.previewerFrame?.isVisible = false
+            binding.previewerFrameLayout?.isVisible = false
+            binding.previewerTabLayout?.isVisible = false
+            binding.noteEditorResizingDivider?.isVisible = false
+        }
         Timber.i("Note Editor is in %s mode", if (fragmented) "split" else "single-pane")
 
         val launcher = NoteIntentParser.parse(intent)

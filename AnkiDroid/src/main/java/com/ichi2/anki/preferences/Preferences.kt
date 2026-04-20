@@ -46,6 +46,7 @@ import com.ichi2.anki.common.annotations.LegacyNotifications
 import com.ichi2.anki.preferences.HeaderFragment.Companion.getHeaderKeyForFragment
 import com.ichi2.anki.reviewreminders.ReviewReminderScope
 import com.ichi2.anki.reviewreminders.ScheduleReminders
+import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.utils.ext.sharedPrefs
 import com.ichi2.anki.utils.isWindowCompact
 import com.ichi2.themes.Themes
@@ -63,7 +64,7 @@ class PreferencesFragment :
      * If so, the left side contains the list of all preference categories, and the right side contains the category currently opened.
      * Otherwise, the same view is used to show the list of categories first, and then one specific category.
      */
-    private val settingsIsSplit get() = !resources.isWindowCompact()
+    private val settingsIsSplit get() = !Prefs.forceSinglePaneLayout && !resources.isWindowCompact()
 
     private val childFragmentOnBackPressedCallback =
         object : OnBackPressedCallback(enabled = false) {

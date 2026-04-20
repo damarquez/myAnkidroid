@@ -328,6 +328,7 @@ open class CardBrowser :
         // TODO: Consider refactoring by storing noteEditorFrame and similar views in a sealed class (e.g., FragmentAccessor).
         val fragmented =
             Prefs.devIsCardBrowserFragmented &&
+                !Prefs.forceSinglePaneLayout &&
                 !useSearchView &&
                 binding.noteEditorFrame?.visibility == View.VISIBLE
         Timber.i("Using split Browser: %b", fragmented)

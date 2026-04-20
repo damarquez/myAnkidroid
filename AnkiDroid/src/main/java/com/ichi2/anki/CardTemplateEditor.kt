@@ -218,7 +218,7 @@ open class CardTemplateEditor :
             tempNoteType = CardTemplateNotetype.fromBundle(savedInstanceState)
         }
 
-        fragmented = binding.fragmentContainer?.isVisible == true
+        fragmented = !Prefs.forceSinglePaneLayout && binding.fragmentContainer?.isVisible == true
 
         setNavigationBarColor(R.attr.alternativeBackgroundColor)
 

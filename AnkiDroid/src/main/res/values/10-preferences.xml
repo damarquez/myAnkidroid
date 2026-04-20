@@ -152,6 +152,8 @@
     <string name="software_render_summ">Hardware render is faster but may have problems, specifically on Android 8/8.1. If you cannot see parts of the card review user interface, try this setting.</string>
     <string name="safe_display" maxLength="41">Safe display mode</string>
     <string name="safe_display_summ">Disable all animations and use safer method for drawing cards. E-ink devices may require this.</string>
+    <string name="force_single_pane_layout" maxLength="41">Use phone layout on large screens</string>
+    <string name="force_single_pane_layout_summ">Disable the app\'s split or dual-pane layouts and use the phone-style single-pane screens instead.</string>
     <string name="disable_extended_text_ui" maxLength="41">Disable Single-Field Edit Mode</string>
     <!--See: multimedia_editor_popup_cloze. We can't use format strings as this is auto-generated-->
     <string name="disable_extended_text_ui_summ">Allows \'Cloze Deletion\' context menu when in landscape mode.</string>

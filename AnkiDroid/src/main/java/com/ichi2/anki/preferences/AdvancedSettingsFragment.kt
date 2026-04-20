@@ -126,6 +126,11 @@ class AdvancedSettingsFragment : SettingsFragment() {
             false
         }
 
+        requirePreference<SwitchPreferenceCompat>(R.string.force_single_pane_layout_key).setOnPreferenceChangeListener { _, _ ->
+            requireActivity().recreate()
+            true
+        }
+
         requirePreference<ListPreference>(R.string.pref_ai_provider_key).summaryProvider =
             Preference.SummaryProvider<ListPreference> { preference ->
                 preference.entry ?: getString(R.string.pref__etc__summary__error)

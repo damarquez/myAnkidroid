@@ -197,6 +197,7 @@
     <string name="disable_single_field_edit_key">disableExtendedTextUi</string>
     <string name="note_editor_newline_replace_key">noteEditorNewlineReplace</string>
     <string name="type_in_answer_focus_key">autoFocusTypeInAnswer</string>
+    <string name="force_single_pane_layout_key">forceSinglePaneLayout</string>
     <string name="exit_via_double_tap_back_key">exitViaDoubleTapBack</string>
     <string name="media_import_allow_all_files_key">mediaImportAllowAllFiles</string>
     <string name="pref_cat_plugins_key">category_plugins</string>

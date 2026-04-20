@@ -386,6 +386,7 @@ open class PrefsRepository(
 
     val isHtmlTypeAnswerEnabled by booleanPref(R.string.use_input_tag_key, defaultValue = false)
     var useFixedPortInReviewer by booleanPref(R.string.use_fixed_port_pref_key, false)
+    val forceSinglePaneLayout by booleanPref(R.string.force_single_pane_layout_key, defaultValue = false)
 
     var reviewerPort by intPref(R.string.reviewer_port_pref_key, defaultValue = 0)
 

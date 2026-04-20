@@ -257,7 +257,8 @@ open class DeckPicker :
 
     override var fragmented: Boolean
         get() =
-            resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK ==
+            !Prefs.forceSinglePaneLayout &&
+                resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK ==
                 Configuration.SCREENLAYOUT_SIZE_XLARGE
         set(_) = throw UnsupportedOperationException()
 
@@ -521,6 +522,10 @@ open class DeckPicker :
 
         setViewBinding(binding)
         enableToolbar()
+        if (Prefs.forceSinglePaneLayout) {
+            binding.studyoptionsFragment?.isVisible = false
+            binding.resizingDivider?.isVisible = false
+        }
         // TODO This method is run on every activity recreation, which can happen often.
         //  It seems that the original idea was for for this to only run once, on app start.
         //  This method triggers backups, sync, and may re-show dialogs
@@ -752,7 +757,7 @@ open class DeckPicker :
 
         fun onStudyOptionsVisibilityChanged(collectionHasNoCards: Boolean) {
             invalidateOptionsMenu()
-            binding.studyoptionsFrame?.isVisible = !collectionHasNoCards
+            binding.studyoptionsFrame?.isVisible = !Prefs.forceSinglePaneLayout && !collectionHasNoCards
         }
 
         fun onDeckListChanged(deckList: FlattenedDeckList) {
@@ -1910,6 +1915,11 @@ open class DeckPicker :
      * @return whether the panel was shown
      */
     private fun tryShowStudyOptionsPanel(): Boolean {
+        if (!fragmented) {
+            binding.studyoptionsFragment?.isVisible = false
+            binding.resizingDivider?.isVisible = false
+            return false
+        }
         val containerId = binding.studyoptionsFragment?.id ?: return false
         supportFragmentManager.commit {
             replace(containerId, StudyOptionsFragment())
