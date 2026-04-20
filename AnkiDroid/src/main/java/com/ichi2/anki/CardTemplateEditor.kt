@@ -1140,6 +1140,11 @@ open class CardTemplateEditor :
                     insertField(SET_SEARCH_CONTROL_TEMPLATE)
                     return true
                 }
+                R.id.action_insert_frequency_control -> {
+                    Timber.i("CardTemplateEditor:: Insert frequency control button pressed")
+                    insertField(FREQUENCY_CONTROL_TEMPLATE)
+                    return true
+                }
                 R.id.action_delete -> {
                     Timber.i("CardTemplateEditor:: Delete template button pressed")
                     deleteCardTemplate()
@@ -1596,11 +1601,13 @@ open class CardTemplateEditor :
                   // Each section can be a single generic action, or a list of actions.
                   // If originField is present, it is only used when the selection came from that field.
                   // If no originField-specific action matches, the generic action is used as fallback.
+                  // fallbackField is optional and is searched only if the main field returns no result.
                   "character": [
                     {
                       "originField": "Pinyin",
                       "deck": "TargetDeck::CharactersByPinyin",
                       "field": "Front",
+                      "fallbackField": "AltFront",
                       "matchMode": "exact",
                       "openMode": "answer",
                       "prefix": "",
@@ -1609,6 +1616,7 @@ open class CardTemplateEditor :
                     {
                       "deck": "TargetDeck::Characters",
                       "field": "Front",
+                      "fallbackField": "",
                       "matchMode": "exact",
                       "openMode": "answer",
                       "prefix": "",
@@ -1619,6 +1627,7 @@ open class CardTemplateEditor :
                   "singleCharWord": {
                     "deck": "TargetDeck::Vocabulary",
                     "field": "Front",
+                    "fallbackField": "Back",
                     "matchMode": "exact",
                     "openMode": "answer",
                     "prefix": "",
@@ -1627,6 +1636,7 @@ open class CardTemplateEditor :
                   "word": {
                     "deck": "TargetDeck::Vocabulary",
                     "field": "Front",
+                    "fallbackField": "",
                     "matchMode": "exact",
                     "openMode": "answer",
                     "prefix": "",
@@ -1791,6 +1801,25 @@ open class CardTemplateEditor :
                     "tokenPattern": "-?[\\p{L}\\p{M}]+",
                     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
                     "maxResults": 8
+                  }
+                ]
+                </script>
+
+                """.trimIndent()
+
+            private val FREQUENCY_CONTROL_TEMPLATE =
+                """
+                <script id="ankidroid-frequency-config" type="application/json">
+                [
+                  {
+                    // Optional: when present, this rule is only used for this field name.
+                    "field": "HSK Frequency",
+                    // Field whose text is looked up in the bundled word-ranking store.
+                    "sourceField": "Front",
+                    // Optional: field that receives the formatted ranking result. Defaults to the current field.
+                    "targetField": "HSK Frequency",
+                    // format: "rankOnly" | "rankAndTerm"
+                    "format": "rankAndTerm"
                   }
                 ]
                 </script>

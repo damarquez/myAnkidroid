@@ -2729,13 +2729,13 @@ abstract class AbstractFlashcardViewer :
             url.getQueryParameter("payload")
                 ?: url.getQueryParameter("search").orEmpty()
         val request = parseNavigationRequest(payload)
-        if (request.query.isBlank()) {
+        if (request.query.isBlank() && request.selectedText.isBlank()) {
             showSnackbar(getString(R.string.search_card_js_api_no_results))
             return
         }
         launchCatchingTask {
             val matches =
-                runCatching { findNavigationMatches(request.query) }
+                runCatching { findNavigationMatches(request) }
                     .getOrElse {
                         showSnackbar(getString(R.string.search_card_js_api_no_results))
                         return@launchCatchingTask

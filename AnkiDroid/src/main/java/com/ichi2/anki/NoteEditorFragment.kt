@@ -174,6 +174,11 @@ import com.ichi2.anki.props.parseTemplateSetSearchRules
 import com.ichi2.anki.props.selectTemplateActorSearchRule
 import com.ichi2.anki.props.selectTemplatePropSearchRule
 import com.ichi2.anki.props.selectTemplateSetSearchRule
+import com.ichi2.anki.ranking.FREQUENCY_FORMAT_RANK_AND_TERM
+import com.ichi2.anki.ranking.TemplateFrequencyLookupConfigException
+import com.ichi2.anki.ranking.WordRankingStore
+import com.ichi2.anki.ranking.parseTemplateFrequencyLookupRules
+import com.ichi2.anki.ranking.selectTemplateFrequencyLookupRule
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import com.ichi2.anki.servicelayer.NoteService
 import com.ichi2.anki.servicelayer.NoteService.convertToHtmlNewline
@@ -2544,6 +2549,7 @@ class NoteEditorFragment :
                 type = AddClozeType.SAME_NUMBER,
             )
         }
+        addFrequencyLookupButton()
         addGenerateAzureTtsButton()
         addGenerateAiTextButton()
         addSetSearchButton()
@@ -2600,6 +2606,16 @@ class NoteEditorFragment :
         val button =
             toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_build_black_24)) {
                 cleanAudioTagsInCurrentField()
+            }
+        button.contentDescription = label
+        button.setTooltipTextCompat(label)
+    }
+
+    private fun addFrequencyLookupButton() {
+        val label = getString(R.string.note_editor_frequency_lookup)
+        val button =
+            toolbar.insertItem(View.generateViewId(), loadHelperBarIcon(R.drawable.ic_star_black_24)) {
+                fillFrequencyInCurrentField()
             }
         button.contentDescription = label
         button.setTooltipTextCompat(label)
@@ -2860,6 +2876,84 @@ class NoteEditorFragment :
                 onConfirm()
             }.setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun fillFrequencyInCurrentField() {
+        val currentField = requireActivity().currentFocus as? FieldEditText
+        if (currentField == null) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_no_field))
+            return
+        }
+
+        val currentFieldName = currentFieldName(currentField.ord)
+        if (currentFieldName == null) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_no_field))
+            return
+        }
+
+        val rules =
+            try {
+                parseTemplateFrequencyLookupRules(editorNote!!.notetype)
+            } catch (e: TemplateFrequencyLookupConfigException) {
+                showSnackbar(e.localizedMessage ?: getString(R.string.note_editor_frequency_lookup_invalid_config))
+                return
+            }
+
+        val rule = selectTemplateFrequencyLookupRule(rules, currentFieldName)
+        if (rule == null) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_no_matching_rule, currentFieldName))
+            return
+        }
+
+        val fieldIndexes = currentFieldIndexesByName()
+        val sourceFieldIndex = fieldIndexes[rule.sourceField]
+        if (sourceFieldIndex == null) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_source_missing, rule.sourceField))
+            return
+        }
+        val sourceValue = getCurrentFieldText(sourceFieldIndex).trim()
+        if (sourceValue.isBlank()) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_source_missing, rule.sourceField))
+            return
+        }
+
+        val targetFieldName = rule.targetField ?: currentFieldName
+        val targetFieldIndex = fieldIndexes[targetFieldName]
+        if (targetFieldIndex == null) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_target_missing, targetFieldName))
+            return
+        }
+
+        launchCatchingTask {
+            val rankingStore = WordRankingStore(requireContext())
+            val status = rankingStore.status()
+            if (!status.ready) {
+                showSnackbar(getString(R.string.note_editor_frequency_lookup_not_ready))
+                return@launchCatchingTask
+            }
+
+            val lookup =
+                withProgress(R.string.note_editor_frequency_lookup_in_progress) {
+                    rankingStore.lookup(sourceValue)
+                }
+            if (lookup?.preferredRank == null) {
+                showSnackbar(getString(R.string.note_editor_frequency_lookup_not_found, sourceValue))
+                return@launchCatchingTask
+            }
+
+            val formattedValue =
+                if (rule.format == FREQUENCY_FORMAT_RANK_AND_TERM) {
+                    "${lookup.preferredRank.toString().padStart(5, '0')} ${lookup.term}"
+                } else {
+                    lookup.preferredRank.toString().padStart(5, '0')
+                }
+            val targetField = editFields?.getOrNull(targetFieldIndex) ?: currentField
+            targetField.setText(formattedValue)
+            if (targetField.hasFocus()) {
+                targetField.setSelection(formattedValue.length)
+            }
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_applied, targetFieldName, lookup.term))
+        }
     }
 
     private fun insertPropInCurrentField() {

@@ -507,14 +507,14 @@ open class AnkiDroidJsAPI(
             val request = parseNavigationRequest(apiContract.cardSuppliedData)
             val query = request.query
             Timber.i("ankiNavigateCard(): query='%s'", query)
-            if (query.isBlank()) {
+            if (query.isBlank() && request.selectedText.isBlank()) {
                 activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
                 return@withContext convertToByteArray(apiContract, false)
             }
 
             val matches =
                 try {
-                    findNavigationMatches(query)
+                    findNavigationMatches(request)
                 } catch (_: Exception) {
                     Timber.w("ankiNavigateCard(): query parsing/search failed for '%s'", query)
                     activity.showSnackbar(context.getString(R.string.search_card_js_api_no_results), Snackbar.LENGTH_SHORT)
@@ -568,6 +568,51 @@ open class AnkiDroidJsAPI(
             }.distinctBy { it.noteId }
     }
 
+    private fun escapeForAnkiSearch(text: String): String = text.replace("\\", "\\\\").replace("\"", "\\\"")
+
+    private fun buildFieldQuery(
+        selectedText: String,
+        search: NavigationSearchSpec,
+        fieldName: String,
+    ): String {
+        val escapedDeck = escapeForAnkiSearch(search.deck)
+        val normalizedText = "${search.prefix}${selectedText}${search.suffix}"
+        val escapedText = escapeForAnkiSearch(normalizedText)
+        val fieldClause =
+            if (search.matchMode == "partial") {
+                "$fieldName:*$escapedText*"
+            } else {
+                "$fieldName:\"$escapedText\""
+            }
+        return "deck:\"$escapedDeck\" $fieldClause"
+    }
+
+    private fun canUseStructuredSearch(request: NavigationRequest): Boolean =
+        request.selectedText.isNotBlank() &&
+            request.search != null &&
+            request.search.deck.isNotBlank() &&
+            request.search.field.isNotBlank()
+
+    private suspend fun findNavigationMatches(request: NavigationRequest): List<NavigationMatch> {
+        if (!canUseStructuredSearch(request)) {
+            return findNavigationMatches(request.query)
+        }
+
+        val search = request.search ?: return findNavigationMatches(request.query)
+        val primaryQuery = buildFieldQuery(request.selectedText, search, search.field)
+        val primaryMatches = findNavigationMatches(primaryQuery)
+        if (primaryMatches.isNotEmpty()) {
+            return primaryMatches
+        }
+
+        val fallbackField = search.fallbackField.trim()
+        if (fallbackField.isBlank() || fallbackField.equals(search.field, ignoreCase = true)) {
+            return primaryMatches
+        }
+        val fallbackQuery = buildFieldQuery(request.selectedText, search, fallbackField)
+        return findNavigationMatches(fallbackQuery)
+    }
+
     private fun openPreviewForCard(
         cardId: Long,
         showAnswer: Boolean,
@@ -602,10 +647,11 @@ open class AnkiDroidJsAPI(
     private fun parseNavigationRequest(payload: String): NavigationRequest {
         val trimmed = payload.trim()
         if (trimmed.isBlank()) {
-            return NavigationRequest("", OPEN_MODE_QUESTION)
+            return NavigationRequest("", OPEN_MODE_QUESTION, "", null)
         }
         return runCatching {
             val data = JSONObject(trimmed)
+            val searchData = data.optJSONObject("search")
             NavigationRequest(
                 query = data.optString("query", "").trim(),
                 openMode =
@@ -614,9 +660,26 @@ open class AnkiDroidJsAPI(
                         .trim()
                         .lowercase()
                         .ifBlank { OPEN_MODE_QUESTION },
+                selectedText = data.optString("selectedText", "").trim(),
+                search =
+                    searchData?.let {
+                        NavigationSearchSpec(
+                            deck = it.optString("deck", "").trim(),
+                            field = it.optString("field", "Front").trim().ifBlank { "Front" },
+                            fallbackField = it.optString("fallbackField", "").trim(),
+                            matchMode =
+                                it
+                                    .optString("matchMode", "exact")
+                                    .trim()
+                                    .lowercase()
+                                    .ifBlank { "exact" },
+                            prefix = it.optString("prefix", ""),
+                            suffix = it.optString("suffix", ""),
+                        )
+                    },
             )
         }.getOrElse {
-            NavigationRequest(trimmed, OPEN_MODE_QUESTION)
+            NavigationRequest(trimmed, OPEN_MODE_QUESTION, "", null)
         }
     }
 
@@ -630,6 +693,17 @@ open class AnkiDroidJsAPI(
     private data class NavigationRequest(
         val query: String,
         val openMode: String,
+        val selectedText: String,
+        val search: NavigationSearchSpec?,
+    )
+
+    private data class NavigationSearchSpec(
+        val deck: String,
+        val field: String,
+        val fallbackField: String,
+        val matchMode: String,
+        val prefix: String,
+        val suffix: String,
     )
 
     open class CardDataForJsApi {

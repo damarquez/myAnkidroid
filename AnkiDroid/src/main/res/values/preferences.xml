@@ -202,6 +202,7 @@
     <string name="pref_cat_plugins_key">category_plugins</string>
     <string name="pref_cat_ai_key">category_ai</string>
     <string name="pref_cat_azure_speech_key">category_azure_speech</string>
+    <string name="pref_cat_word_ranking_key">category_word_ranking</string>
     <string name="enable_api_key">providerEnabled</string>
     <string name="thirdparty_apps_key">thirdpartyapps_link</string>
     <string name="pref_ai_provider_key">aiProvider</string>
@@ -211,6 +212,7 @@
     <string name="pref_azure_speech_region_key">azureSpeechRegion</string>
     <string name="pref_azure_speech_voices_key">azureSpeechVoices</string>
     <string name="pref_azure_speech_output_format_key">azureSpeechOutputFormat</string>
+    <string name="pref_word_ranking_setup_key">wordRankingSetup</string>
     <string name="tts_key">tts</string>
     <string name="double_scrolling_gap_key">double_scrolling</string>
     <string name="html_javascript_debugging_key">html_javascript_debugging</string>

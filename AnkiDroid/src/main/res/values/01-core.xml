@@ -145,6 +145,7 @@
     <string name="card_template_editor_insert_prop_search_control" maxLength="28">Insert prop search control</string>
     <string name="card_template_editor_insert_actor_search_control" maxLength="28">Insert actor search control</string>
     <string name="card_template_editor_insert_set_search_control" maxLength="28">Insert set search control</string>
+    <string name="card_template_editor_insert_frequency_control" maxLength="28">Insert frequency control</string>
     <string name="card_template_editor_select_field">Select field</string>
     <string name="note_editor_tts_generate">Generate Azure audio</string>
     <string name="note_editor_tts_no_field">Tap inside a field first</string>
@@ -200,6 +201,21 @@
     <string name="note_editor_set_search_more_results">More matches exist. Be more specific.</string>
     <string name="note_editor_set_search_pick_title">Pick a set for “%1$s”</string>
     <string name="note_editor_set_search_applied">Inserted a set into %1$s</string>
+    <string name="note_editor_frequency_lookup">Fill HSK Frequency</string>
+    <string name="note_editor_frequency_lookup_no_field">Tap inside a field first</string>
+    <string name="note_editor_frequency_lookup_invalid_config">Invalid ankidroid-frequency-config in the card template</string>
+    <string name="note_editor_frequency_lookup_no_matching_rule">No frequency rule matched the current field: %1$s</string>
+    <string name="note_editor_frequency_lookup_source_missing">The configured source field is missing or empty: %1$s</string>
+    <string name="note_editor_frequency_lookup_target_missing">The configured target field was not found: %1$s</string>
+    <string name="note_editor_frequency_lookup_not_ready">Set up word ranking in Advanced settings first</string>
+    <string name="note_editor_frequency_lookup_not_found">No ranking result was found for â€œ%1$sâ€</string>
+    <string name="note_editor_frequency_lookup_applied">Filled %1$s with ranking for %2$s</string>
+    <string name="note_editor_frequency_lookup_in_progress">Looking up word rankingâ€¦</string>
+    <string name="pref_word_ranking_setup_in_progress">Setting up word rankingâ€¦</string>
+    <string name="pref_word_ranking_setup_done">Word ranking is ready with %1$d entries</string>
+    <string name="pref_word_ranking_setup_status_not_ready">Bundled ranking data is not set up yet</string>
+    <string name="pref_word_ranking_setup_status_ready">Ready: %1$d entries</string>
+    <string name="pref_word_ranking_setup_failed">Failed to set up word ranking</string>
     <string name="card_template_editor_cant_delete">At least one card type is required</string>
     <plurals name="card_template_editor_confirm_add">
         <item quantity="one">This will create %1$d card. Proceed?</item>

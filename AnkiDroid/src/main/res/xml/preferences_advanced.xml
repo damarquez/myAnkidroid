@@ -147,6 +147,14 @@
                 android:summary="@string/pref_azure_speech_output_format_summary"
                 android:title="@string/pref_azure_speech_output_format_title" />
         </PreferenceCategory>
+        <PreferenceCategory
+            android:key="@string/pref_cat_word_ranking_key"
+            android:title="@string/pref_cat_word_ranking" >
+            <Preference
+                android:key="@string/pref_word_ranking_setup_key"
+                android:summary="@string/pref_word_ranking_setup_summary"
+                android:title="@string/pref_word_ranking_setup_title" />
+        </PreferenceCategory>
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:icon="@drawable/ic_warning"

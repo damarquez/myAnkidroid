@@ -208,6 +208,7 @@
             search: {
                 deck: String((config && config.deck) || ""),
                 field: String((config && config.field) || "Front"),
+                fallbackField: String((config && config.fallbackField) || ""),
                 matchMode: String((config && config.matchMode) || "exact").toLowerCase(),
                 prefix: String((config && config.prefix) || ""),
                 suffix: String((config && config.suffix) || ""),

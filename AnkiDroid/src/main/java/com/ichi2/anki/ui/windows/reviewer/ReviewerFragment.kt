@@ -754,13 +754,13 @@ class ReviewerFragment :
 
     private fun openLinkedPreview(payload: String) {
         val request = parseNavigationRequest(payload)
-        if (request.query.isBlank()) {
+        if (request.query.isBlank() && request.selectedText.isBlank()) {
             showSnackbar(getString(R.string.search_card_js_api_no_results))
             return
         }
         lifecycleScope.launch {
             val matches =
-                runCatching { findNavigationMatches(request.query) }
+                runCatching { findNavigationMatches(request) }
                     .getOrElse {
                         showSnackbar(getString(R.string.search_card_js_api_no_results))
                         return@launch

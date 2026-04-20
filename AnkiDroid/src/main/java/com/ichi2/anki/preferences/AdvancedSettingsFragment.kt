@@ -34,10 +34,12 @@ import com.ichi2.anki.compat.CompatHelper
 import com.ichi2.anki.exception.StorageAccessException
 import com.ichi2.anki.launchCatchingTask
 import com.ichi2.anki.provider.CardContentProvider
+import com.ichi2.anki.ranking.WordRankingStore
 import com.ichi2.anki.settings.Prefs
 import com.ichi2.anki.snackbar.showSnackbar
 import com.ichi2.anki.tts.AzureSpeechPreferences
 import com.ichi2.anki.utils.openUrl
+import com.ichi2.anki.withProgress
 import com.ichi2.utils.show
 import timber.log.Timber
 import java.io.File
@@ -163,6 +165,7 @@ class AdvancedSettingsFragment : SettingsFragment() {
             Preference.SummaryProvider<EditTextPreference> { preference ->
                 preference.text?.takeIf { it.isNotBlank() } ?: AzureSpeechPreferences(requireContext()).load().outputFormat
             }
+        setupWordRankingPreference()
 
         // Enable API
         requirePreference<SwitchPreferenceCompat>(R.string.enable_api_key).setOnPreferenceChangeListener { newValue ->
@@ -198,6 +201,36 @@ class AdvancedSettingsFragment : SettingsFragment() {
         for (key in legacyStudyScreenSettings) {
             val keyString = getString(key)
             findPreference<Preference>(keyString)?.isVisible = false
+        }
+    }
+
+    private fun setupWordRankingPreference() {
+        val rankingStore = WordRankingStore(requireContext())
+        val preference = requirePreference<Preference>(R.string.pref_word_ranking_setup_key)
+
+        fun updateSummary() {
+            launchCatchingTask {
+                val status = rankingStore.status()
+                preference.summary =
+                    if (status.ready) {
+                        getString(R.string.pref_word_ranking_setup_status_ready, status.entryCount)
+                    } else {
+                        getString(R.string.pref_word_ranking_setup_status_not_ready)
+                    }
+            }
+        }
+
+        updateSummary()
+        preference.setOnPreferenceClickListener {
+            launchCatchingTask {
+                val status =
+                    withProgress(R.string.pref_word_ranking_setup_in_progress) {
+                        rankingStore.setupBundledRanking()
+                    }
+                preference.summary = getString(R.string.pref_word_ranking_setup_status_ready, status.entryCount)
+                showSnackbar(getString(R.string.pref_word_ranking_setup_done, status.entryCount))
+            }
+            true
         }
     }
 
