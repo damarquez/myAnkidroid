@@ -21,6 +21,8 @@ data class LinkedNoteConfig(
     val maxResults: Int,
 )
 
+private val LINKED_NOTE_GUID_STORAGE_REGEX = Regex("""\{([^{}\r\n]+)\}""")
+
 data class LinkedNoteRelation(
     val config: LinkedNoteConfig,
     val linkedNoteGuid: String,
@@ -87,7 +89,7 @@ fun resolveLinkedNoteRelation(
 ): LinkedNoteRelation? {
     val config = parseTemplateLinkedNoteConfig(note.notetype) ?: return null
     if (!note.contains(config.linkedNoteField)) return null
-    val linkedGuid = note.getItem(config.linkedNoteField).trim()
+    val linkedGuid = extractLinkedNoteGuid(note.getItem(config.linkedNoteField))
     if (linkedGuid.isBlank()) return null
     if (linkedGuid == note.guId) return null
 
@@ -124,6 +126,12 @@ fun buildEffectiveLinkedNote(
             clone[fieldName] = ""
             continue
         }
+        if (fieldName == relation.config.searchField) {
+            if (relation.linkedNote.contains(fieldName)) {
+                clone[fieldName] = relation.linkedNote.getItem(fieldName)
+            }
+            continue
+        }
         val currentValue = clone.getItem(fieldName)
         if (currentValue.trim().isNotEmpty()) {
             continue
@@ -144,4 +152,11 @@ operator fun Note.set(
     value: String,
 ) {
     setItem(fieldName, value)
+}
+
+fun extractLinkedNoteGuid(rawValue: String): String {
+    val trimmed = rawValue.trim()
+    if (trimmed.isBlank()) return ""
+    val match = LINKED_NOTE_GUID_STORAGE_REGEX.find(trimmed)
+    return match?.groupValues?.getOrNull(1)?.trim().orEmpty().ifBlank { trimmed }
 }

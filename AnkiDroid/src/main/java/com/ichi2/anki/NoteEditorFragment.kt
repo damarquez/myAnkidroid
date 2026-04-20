@@ -127,6 +127,7 @@ import com.ichi2.anki.libanki.NotetypeJson
 import com.ichi2.anki.libanki.Notetypes
 import com.ichi2.anki.libanki.Utils
 import com.ichi2.anki.libanki.clozeNumbersInNote
+import com.ichi2.anki.libanki.extractLinkedNoteGuid
 import com.ichi2.anki.libanki.parseTemplateLinkedNoteConfig
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.SelectableDeck
@@ -2999,7 +3000,7 @@ class NoteEditorFragment :
 
         val input =
             EditText(requireContext()).apply {
-                setText("")
+                setText(extractLinkedNoteGuid(currentField.text?.toString().orEmpty()))
                 hint = getString(R.string.note_editor_linked_note_search_hint)
             }
         MaterialAlertDialogBuilder(requireContext())
@@ -3045,9 +3046,11 @@ class NoteEditorFragment :
                 }.filter { note ->
                     note.noteTypeId == editorNote!!.noteTypeId && note.guId != editorNote!!.guId
                 }.map { note ->
+                    val summary = buildLinkedNoteSummary(note, config)
                     LinkedNoteSuggestion(
                         guid = note.guId.orEmpty(),
-                        summary = buildLinkedNoteSummary(note, config),
+                        summary = summary,
+                        storedValue = formatLinkedNoteStoredValue(note.guId.orEmpty(), summary),
                     )
                 }.filter { it.guid.isNotBlank() }
                 .distinctBy { it.guid }
@@ -3123,10 +3126,23 @@ class NoteEditorFragment :
             .setTitle(R.string.note_editor_linked_note_pick_title)
             .setItems(items) { _, which ->
                 val suggestion = suggestions.getOrNull(which) ?: return@setItems
-                currentField.setText(suggestion.guid)
-                currentField.setSelection(suggestion.guid.length)
+                currentField.setText(suggestion.storedValue)
+                currentField.setSelection(suggestion.storedValue.length)
                 showSnackbar(getString(R.string.note_editor_linked_note_applied))
             }.show()
+    }
+
+    private fun formatLinkedNoteStoredValue(
+        guid: String,
+        summary: String,
+    ): String = buildString {
+        append('{')
+        append(guid)
+        append('}')
+        if (summary.isNotBlank()) {
+            append(' ')
+            append(summary)
+        }
     }
 
     private fun insertPropInCurrentField() {
@@ -3931,6 +3947,7 @@ class NoteEditorFragment :
     private data class LinkedNoteSuggestion(
         val guid: String,
         val summary: String,
+        val storedValue: String,
     )
 
     private val helperNumberedChineseLine = Regex("""^(\d+(?:\.\d+)*)\.\s*((?:\[sound:[^\]\r\n]+\]\s*)*)([\p{IsHan}].*)$""")

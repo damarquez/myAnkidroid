@@ -1837,11 +1837,13 @@ open class CardTemplateEditor :
                 """
                 <script id="ankidroid-linked-note-config" type="application/json">
                 {
-                  // Field that stores the GUID of another note to visually inherit blank fields from.
+                  // Field that stores the linked note reference as "{GUID} optional label text".
                   "linkedNoteField": "Linked Note",
                   // Optional: deck to search in when choosing a linked note.
                   "deck": "MandarinMP::Main",
                   // Optional: field searched with the typed query in the chooser.
+                  // This field is also always taken from the linked note during rendering,
+                  // even when the current note already has content there.
                   "searchField": "Front",
                   // Optional: fields shown in the picker summary. Falls back to the first non-empty visible fields.
                   "labelFields": ["Front", "Back"],
