@@ -35,14 +35,42 @@
         </LinearLayout>
     </ScrollView>
 
-    <com.google.android.material.bottomnavigation.BottomNavigationView
+    <com.google.android.material.button.MaterialButtonToggleGroup
         android:id="@+id/bottom_navigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        style="@style/BottomNavigationViewStyle"
         android:background="?attr/alternativeBackgroundColor"
-        app:menu="@menu/card_template_editor_navigation_bar_menu"
-        />
+        app:selectionRequired="true"
+        app:singleSelection="true">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/front_edit"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/front_field_name"
+            app:icon="@drawable/ic_card_question" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/back_edit"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/back_field_name"
+            app:icon="@drawable/ic_card_answer" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/styling_edit"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/card_template_editor_styling"
+            app:icon="@drawable/ic_css" />
+
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
 </LinearLayout>

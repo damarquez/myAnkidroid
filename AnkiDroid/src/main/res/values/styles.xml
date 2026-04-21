@@ -239,6 +239,8 @@
 
     <style name="BottomNavigationViewStyle" parent="@style/Widget.Material3.BottomNavigationView">
         <item name="materialThemeOverlay">@style/ThemeOverlay.App.BottomNavigationView</item>
+        <item name="itemIconTint">@color/card_template_editor_bottom_nav_item_tint</item>
+        <item name="itemTextColor">@color/card_template_editor_bottom_nav_item_tint</item>
     </style>
     <style name="ThemeOverlay.App.BottomNavigationView" parent="">
         <item name="colorSecondaryContainer">?attr/tabLayoutBackgroundColor</item> <!-- Selected item indicator -->

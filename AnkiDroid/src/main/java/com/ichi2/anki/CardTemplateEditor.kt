@@ -428,15 +428,15 @@ open class CardTemplateEditor :
             }
             KeyEvent.KEYCODE_1 -> {
                 Timber.i("Ctrl+1: Edit front template from keypress")
-                currentFragment.binding.bottomNavigation.selectedItemId = R.id.front_edit
+                currentFragment.selectEditorView(R.id.front_edit)
             }
             KeyEvent.KEYCODE_2 -> {
                 Timber.i("Ctrl+2: Edit back template from keypress")
-                currentFragment.binding.bottomNavigation.selectedItemId = R.id.back_edit
+                currentFragment.selectEditorView(R.id.back_edit)
             }
             KeyEvent.KEYCODE_3 -> {
                 Timber.i("Ctrl+3: Edit styling from keypress")
-                currentFragment.binding.bottomNavigation.selectedItemId = R.id.styling_edit
+                currentFragment.selectEditorView(R.id.styling_edit)
             }
             KeyEvent.KEYCODE_S -> {
                 Timber.i("Ctrl+S: Save note from keypress")
@@ -631,10 +631,13 @@ open class CardTemplateEditor :
                 binding.mainLayout.addView(cardView, 0)
             }
 
-            binding.bottomNavigation.setOnItemSelectedListener { item: MenuItem ->
-                val currentSelectedId = item.itemId
+            binding.bottomNavigation.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (!isChecked) {
+                    return@addOnButtonCheckedListener
+                }
+                val currentSelectedId = checkedId
                 templateEditor.tabToViewId[cardIndex] = currentSelectedId
-                Timber.i("selected editor view: %s", item.title)
+                Timber.i("selected editor view id: %s", currentSelectedId)
                 when (currentSelectedId) {
                     R.id.styling_edit ->
                         setCurrentEditorView(
@@ -654,11 +657,11 @@ open class CardTemplateEditor :
                 }
                 // contents of menu have changed and menu should be redrawn
                 templateEditor.invalidateOptionsMenu()
-                true
             }
             // set saved or default view
-            binding.bottomNavigation.selectedItemId =
-                templateEditor.tabToViewId[cardIndex] ?: requireArguments().getInt(EDITOR_VIEW_ID_KEY)
+            binding.bottomNavigation.check(
+                templateEditor.tabToViewId[cardIndex] ?: requireArguments().getInt(EDITOR_VIEW_ID_KEY),
+            )
 
             // Set text change listeners
             val templateEditorWatcher: TextWatcher =
@@ -730,6 +733,10 @@ open class CardTemplateEditor :
                 insertField(bundle.getString(InsertFieldDialog.KEY_INSERTED_FIELD)!!)
             }
             setupMenu()
+        }
+
+        fun selectEditorView(editorViewId: Int) {
+            binding.bottomNavigation.check(editorViewId)
         }
 
         /*
