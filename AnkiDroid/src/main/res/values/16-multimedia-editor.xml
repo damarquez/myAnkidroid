@@ -30,6 +30,15 @@
         <item quantity="one">Rename %1$s to %2$s? This will also update %3$d other saved note.</item>
         <item quantity="other">Rename %1$s to %2$s? This will also update %3$d other saved notes.</item>
     </plurals>
+    <string name="note_editor_image_import_title">Image import options</string>
+    <string name="note_editor_image_import_current_size">Current size: %1$s</string>
+    <string name="note_editor_image_import_estimated_size">Estimated imported size: %1$s</string>
+    <string name="note_editor_image_import_filename_hint">Filename</string>
+    <string name="note_editor_image_import_compression_value">Compression: %1$d%%</string>
+    <string name="note_editor_image_import_compression_hint">0%% keeps the original image as is.</string>
+    <string name="note_editor_image_import_compression_unavailable">Compression is available for JPEG and PNG images only.</string>
+    <string name="note_editor_image_import_keep_extension">Keep the original file extension (%1$s).</string>
+    <string name="note_editor_image_import_prepare_failed">Could not prepare the image for import.</string>
 
     <!-- Field editing general -->
     <!-- these are button names to convert field type -->

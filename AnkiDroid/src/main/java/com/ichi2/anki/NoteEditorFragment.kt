@@ -28,6 +28,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
@@ -36,6 +38,7 @@ import android.text.Editable
 import android.text.Spanned
 import android.text.TextUtils
 import android.text.TextWatcher
+import android.text.format.Formatter
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
@@ -80,6 +83,7 @@ import androidx.core.view.MenuProvider
 import androidx.core.view.OnReceiveContentListener
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.draganddrop.DropHelper
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -89,7 +93,10 @@ import anki.config.ConfigKey
 import anki.notes.NoteFieldsCheckResponse
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.google.protobuf.kotlin.toByteString
 import com.ichi2.anim.ActivityTransitionAnimation
 import com.ichi2.anki.CardBrowser.Companion.EXTRA_PICKED_NOTE_GUID
@@ -217,11 +224,14 @@ import com.ichi2.imagecropper.ImageCropperLauncher
 import com.ichi2.themes.Themes
 import com.ichi2.ui.CollectionMediaImageGetter
 import com.ichi2.utils.AndroidUiUtils.showSoftInput
+import com.ichi2.utils.BitmapUtil
 import com.ichi2.utils.ClipboardUtil
 import com.ichi2.utils.ClipboardUtil.MEDIA_MIME_TYPES
 import com.ichi2.utils.ClipboardUtil.hasMedia
 import com.ichi2.utils.ClipboardUtil.items
 import com.ichi2.utils.ContentResolverUtil
+import com.ichi2.utils.ExifUtil
+import com.ichi2.utils.FileNameAndExtension
 import com.ichi2.utils.HashUtil
 import com.ichi2.utils.ImportUtils
 import com.ichi2.utils.IntentUtil.resolveMimeType
@@ -241,22 +251,31 @@ import com.ichi2.utils.positiveButton
 import com.ichi2.utils.show
 import com.ichi2.utils.stripHtml
 import com.ichi2.utils.title
+import com.ichi2.utils.withFileNameSafe
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import net.ankiweb.rsdroid.Backend
 import org.json.JSONArray
 import timber.log.Timber
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.util.LinkedList
 import java.util.Locale
 import java.util.function.Consumer
+import kotlin.coroutines.resume
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 const val CALLER_KEY = "caller"
 private const val AI_PROMPT_PREVIEW_LENGTH = 150
+private const val IMAGE_IMPORT_MIN_LONGEST_SIDE = 512
 
 /**
  * Allows the user to edit a note, for instance if there is a typo. A card is a presentation of a note, and has two
@@ -2463,6 +2482,9 @@ class NoteEditorFragment :
             // This goes before setting formattedValue to update
             // media paths with the checksum when they have the same name
             try {
+                if (field.type == EFieldType.IMAGE && !skipSizeCheck && !prepareImageFieldForImport(field)) {
+                    return@launchCatchingTask
+                }
                 withCol {
                     NoteService.importMediaToDirectory(this, field, skipSizeCheck = skipSizeCheck)
                 }
@@ -2492,6 +2514,330 @@ class NoteEditorFragment :
             }
         }
     }
+
+    private suspend fun prepareImageFieldForImport(field: IField): Boolean {
+        val imageFile = field.mediaFile ?: return true
+        val importOptions = showImageImportOptionsDialog(imageFile) ?: return false
+        val preparedFile =
+            withContext(Dispatchers.Default) {
+                prepareImageFileForImport(
+                    sourceFile = imageFile,
+                    requestedFilename = importOptions.filename,
+                    compressionPercent = importOptions.compressionPercent,
+                )
+            }
+        if (preparedFile == null) {
+            showSnackbar(R.string.note_editor_image_import_prepare_failed)
+            return false
+        }
+        field.mediaFile = preparedFile
+        return true
+    }
+
+    private suspend fun showImageImportOptionsDialog(imageFile: File): ImageImportOptions? =
+        suspendCancellableCoroutine { continuation ->
+            val previewInfo = buildImageImportPreviewInfo(imageFile)
+            val contentView =
+                layoutInflater.inflate(R.layout.dialog_note_editor_image_import_options, null)
+            val currentSizeView =
+                contentView.findViewById<TextView>(R.id.note_editor_image_import_current_size)
+            val estimatedSizeView =
+                contentView.findViewById<TextView>(R.id.note_editor_image_import_estimated_size)
+            val filenameLayout =
+                contentView.findViewById<TextInputLayout>(R.id.note_editor_image_import_filename_layout)
+            val filenameInput =
+                contentView.findViewById<TextInputEditText>(R.id.note_editor_image_import_filename)
+            val compressionValueView =
+                contentView.findViewById<TextView>(R.id.note_editor_image_import_compression_value)
+            val compressionSlider =
+                contentView.findViewById<Slider>(R.id.note_editor_image_import_compression_slider)
+            val compressionHintView =
+                contentView.findViewById<TextView>(R.id.note_editor_image_import_compression_hint)
+
+            currentSizeView.text =
+                getString(
+                    R.string.note_editor_image_import_current_size,
+                    Formatter.formatShortFileSize(requireContext(), imageFile.length()),
+                )
+            filenameLayout.hint = getString(R.string.note_editor_image_import_filename_hint)
+            filenameInput.setText(imageFile.name)
+            filenameInput.setSelection(imageFile.name.length)
+
+            compressionSlider.value = 0f
+            compressionSlider.isEnabled = previewInfo.compressionSupported
+            compressionHintView.text =
+                getString(
+                    if (previewInfo.compressionSupported) {
+                        R.string.note_editor_image_import_compression_hint
+                    } else {
+                        R.string.note_editor_image_import_compression_unavailable
+                    },
+                )
+
+            var completed = false
+            val dialog =
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.note_editor_image_import_title)
+                    .setView(contentView)
+                    .setPositiveButton(R.string.dialog_ok, null)
+                    .setNegativeButton(R.string.dialog_cancel, null)
+                    .create()
+
+            fun candidateFilename(): String =
+                filenameInput.text
+                    ?.toString()
+                    ?.trim()
+                    .orEmpty()
+
+            fun validateFilename(candidate: String): String? =
+                when {
+                    candidate.isBlank() -> getString(R.string.note_editor_rename_media_file_invalid)
+                    !isValidMediaFilename(candidate) -> getString(R.string.note_editor_rename_media_file_invalid)
+                    !candidateHasSameExtension(candidate, previewInfo.originalFilename) ->
+                        getString(
+                            R.string.note_editor_image_import_keep_extension,
+                            previewInfo.originalExtensionWithDot,
+                        )
+                    getColUnsafe.media.have(candidate) -> getString(R.string.error_name_exists)
+                    else -> null
+                }
+
+            fun updateDialogState() {
+                val compressionPercent = compressionSlider.value.roundToInt()
+                compressionValueView.text =
+                    getString(
+                        R.string.note_editor_image_import_compression_value,
+                        compressionPercent,
+                    )
+                val estimatedSize =
+                    estimateCompressedImageSizeBytes(
+                        previewInfo = previewInfo,
+                        compressionPercent = compressionPercent,
+                    )
+                estimatedSizeView.text =
+                    getString(
+                        R.string.note_editor_image_import_estimated_size,
+                        Formatter.formatShortFileSize(requireContext(), estimatedSize),
+                    )
+                val error = validateFilename(candidateFilename())
+                filenameLayout.error = error
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled = error == null
+            }
+
+            dialog.setOnShowListener {
+                updateDialogState()
+                filenameInput.doAfterTextChanged { updateDialogState() }
+                compressionSlider.addOnChangeListener { _, _, _ -> updateDialogState() }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    val candidate = candidateFilename()
+                    val error = validateFilename(candidate)
+                    filenameLayout.error = error
+                    if (error != null) {
+                        return@setOnClickListener
+                    }
+                    completed = true
+                    continuation.resume(
+                        ImageImportOptions(
+                            filename = candidate,
+                            compressionPercent = compressionSlider.value.roundToInt(),
+                        ),
+                    )
+                    dialog.dismiss()
+                }
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                    completed = true
+                    continuation.resume(null)
+                    dialog.dismiss()
+                }
+            }
+            dialog.setOnDismissListener {
+                if (!completed && continuation.isActive) {
+                    completed = true
+                    continuation.resume(null)
+                }
+            }
+            continuation.invokeOnCancellation {
+                if (dialog.isShowing) {
+                    dialog.dismiss()
+                }
+            }
+            dialog.show()
+        }
+
+    private fun buildImageImportPreviewInfo(imageFile: File): ImageImportPreviewInfo {
+        val originalFilename = imageFile.name
+        val fileNameAndExtension = FileNameAndExtension.fromString(originalFilename)
+        val extensionWithDot = fileNameAndExtension?.extensionWithDot ?: ""
+        val extension = extensionWithDot.removePrefix(".").lowercase(Locale.ROOT)
+        val dimensions = readImageDimensions(imageFile)
+        return ImageImportPreviewInfo(
+            originalFilename = originalFilename,
+            originalExtensionWithDot = extensionWithDot,
+            originalSizeBytes = imageFile.length(),
+            originalLongestSide = dimensions?.let { max(it.first, it.second) } ?: 0,
+            compressionSupported = extension in setOf("jpg", "jpeg", "png") && dimensions != null,
+        )
+    }
+
+    private fun candidateHasSameExtension(
+        candidateFilename: String,
+        originalFilename: String,
+    ): Boolean {
+        val original = FileNameAndExtension.fromString(originalFilename) ?: return false
+        val candidate = FileNameAndExtension.fromString(candidateFilename) ?: return false
+        return candidate.extensionWithDot.equals(original.extensionWithDot, ignoreCase = true)
+    }
+
+    private fun estimateCompressedImageSizeBytes(
+        previewInfo: ImageImportPreviewInfo,
+        compressionPercent: Int,
+    ): Long {
+        if (!previewInfo.compressionSupported || compressionPercent <= 0) {
+            return previewInfo.originalSizeBytes
+        }
+        val originalLongestSide = previewInfo.originalLongestSide.coerceAtLeast(1)
+        val targetLongestSide = calculateTargetLongestSide(originalLongestSide, compressionPercent)
+        val dimensionScale = targetLongestSide.toDouble() / originalLongestSide.toDouble()
+        val areaScale = dimensionScale * dimensionScale
+        val extension = previewInfo.originalExtensionWithDot.removePrefix(".").lowercase(Locale.ROOT)
+        val formatScale =
+            when (extension) {
+                "png" -> 0.98
+                else -> calculateJpegQuality(compressionPercent) / 100.0
+            }
+        return (previewInfo.originalSizeBytes * areaScale * formatScale)
+            .roundToLong()
+            .coerceAtLeast(1L)
+    }
+
+    private fun prepareImageFileForImport(
+        sourceFile: File,
+        requestedFilename: String,
+        compressionPercent: Int,
+    ): File? {
+        var workingFile = sourceFile
+
+        if (compressionPercent > 0) {
+            workingFile =
+                compressImageFileForImport(
+                    sourceFile = sourceFile,
+                    requestedFilename = requestedFilename,
+                    compressionPercent = compressionPercent,
+                ) ?: return null
+        }
+
+        if (workingFile.name != requestedFilename) {
+            val renamedFile = copyMediaFileWithName(workingFile, requestedFilename) ?: return null
+            if (workingFile != sourceFile) {
+                workingFile.delete()
+            }
+            workingFile = renamedFile
+        }
+
+        if (workingFile != sourceFile && sourceFile.exists()) {
+            sourceFile.delete()
+        }
+
+        return workingFile
+    }
+
+    private fun compressImageFileForImport(
+        sourceFile: File,
+        requestedFilename: String,
+        compressionPercent: Int,
+    ): File? {
+        val fileNameAndExtension = FileNameAndExtension.fromString(requestedFilename) ?: return null
+        val extension = fileNameAndExtension.extensionWithDot.removePrefix(".").lowercase(Locale.ROOT)
+        if (extension !in setOf("jpg", "jpeg", "png")) {
+            return sourceFile
+        }
+
+        val originalDimensions = readImageDimensions(sourceFile) ?: return null
+        val targetLongestSide =
+            calculateTargetLongestSide(
+                max(originalDimensions.first, originalDimensions.second),
+                compressionPercent,
+            )
+        var bitmap = BitmapUtil.decodeFile(sourceFile, targetLongestSide) ?: return null
+        bitmap = ExifUtil.rotateFromCamera(sourceFile, bitmap)
+
+        return try {
+            val tempFile =
+                File.createTempFile(
+                    fileNameAndExtension.renameForCreateTempFile().fileName,
+                    fileNameAndExtension.extensionWithDot,
+                    sourceFile.parentFile,
+                )
+            FileOutputStream(tempFile).use { outputStream ->
+                when (extension) {
+                    "png" -> bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                    else -> bitmap.compress(Bitmap.CompressFormat.JPEG, calculateJpegQuality(compressionPercent), outputStream)
+                }
+            }
+            tempFile
+        } catch (e: IOException) {
+            Timber.w(e, "Failed to compress image for import")
+            null
+        }
+    }
+
+    private fun copyMediaFileWithName(
+        sourceFile: File,
+        requestedFilename: String,
+    ): File? =
+        try {
+            val parent = sourceFile.parentFile ?: return null
+            val destination = parent.withFileNameSafe(requestedFilename)
+            if (destination == sourceFile) {
+                sourceFile
+            } else {
+                sourceFile.copyTo(destination, overwrite = true)
+            }
+        } catch (e: IOException) {
+            Timber.w(e, "Failed to rename media file for import")
+            null
+        } catch (e: SecurityException) {
+            Timber.w(e, "Unsafe media filename for import")
+            null
+        }
+
+    private fun readImageDimensions(file: File): Pair<Int, Int>? {
+        val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+        val width = options.outWidth
+        val height = options.outHeight
+        return if (width > 0 && height > 0) {
+            width to height
+        } else {
+            null
+        }
+    }
+
+    private fun calculateTargetLongestSide(
+        originalLongestSide: Int,
+        compressionPercent: Int,
+    ): Int {
+        val scale = 1f - (compressionPercent / 100f) * 0.7f
+        val minLongestSide = min(IMAGE_IMPORT_MIN_LONGEST_SIDE, originalLongestSide)
+        return (originalLongestSide * scale)
+            .roundToInt()
+            .coerceIn(minLongestSide, originalLongestSide)
+    }
+
+    private fun calculateJpegQuality(compressionPercent: Int): Int = (100 - compressionPercent * 0.6f).roundToInt().coerceIn(40, 100)
+
+    private data class ImageImportOptions(
+        val filename: String,
+        val compressionPercent: Int,
+    )
+
+    private data class ImageImportPreviewInfo(
+        val originalFilename: String,
+        val originalExtensionWithDot: String,
+        val originalSizeBytes: Long,
+        val originalLongestSide: Int,
+        val compressionSupported: Boolean,
+    )
 
     private fun showLargeMediaFileWarning(
         fileName: String,
