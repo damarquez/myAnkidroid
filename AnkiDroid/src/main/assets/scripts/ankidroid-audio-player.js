@@ -240,7 +240,7 @@
             button = document.createElement("button");
             button.type = "button";
             button.className = STOP_ALL_CLASS;
-            button.textContent = "Stop";
+            button.textContent = "\u25A0";
             button.addEventListener("click", function (event) {
                 event.preventDefault();
                 event.stopPropagation();
