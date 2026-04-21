@@ -19,6 +19,7 @@
 package com.ichi2.anki.multimedia
 
 import com.ichi2.anki.CollectionManager
+import com.ichi2.anki.cardviewer.PlaybackCommandOptions
 import com.ichi2.anki.common.utils.htmlEncode
 import com.ichi2.anki.compat.CompatHelper
 import com.ichi2.anki.libanki.AvRef
@@ -35,6 +36,7 @@ import com.ichi2.anki.libanki.getFileUri
 import com.ichi2.anki.utils.CollectionPreferences
 import org.intellij.lang.annotations.Language
 import org.jetbrains.annotations.VisibleForTesting
+import org.json.JSONObject
 import java.io.File
 import java.nio.file.Paths
 
@@ -136,6 +138,27 @@ data class AudioPlayerOptions(
     val playerId: String? = null,
 )
 
+enum class AudioAutoPlayMode {
+    SYSTEM,
+    FORCE_YES,
+    FORCE_NO,
+    ;
+
+    companion object {
+        fun fromConfigValue(value: String): AudioAutoPlayMode =
+            when (value.trim().lowercase()) {
+                "forceyes" -> FORCE_YES
+                "forceno" -> FORCE_NO
+                else -> SYSTEM
+            }
+    }
+}
+
+data class AudioAutoPlayConfig(
+    val mode: AudioAutoPlayMode = AudioAutoPlayMode.SYSTEM,
+    val playbackOptions: PlaybackCommandOptions = PlaybackCommandOptions(),
+)
+
 fun parseAudioPlayerOptions(url: String): AudioPlayerOptions {
     val query = url.substringAfter("?", "")
     if (query.isBlank()) return AudioPlayerOptions()
@@ -164,6 +187,33 @@ fun parseAudioPlayerOptions(url: String): AudioPlayerOptions {
         playerId = playerId,
     )
 }
+
+fun parseAudioAutoPlayConfigFromHtml(text: String): AudioAutoPlayConfig {
+    val match = AUDIO_CONFIG_REGEX.find(text) ?: return AudioAutoPlayConfig()
+    return runCatching {
+        val json = JSONObject(stripJsonComments(match.groupValues[1]))
+        AudioAutoPlayConfig(
+            mode = AudioAutoPlayMode.fromConfigValue(json.optString("autoPlayMode", "system")),
+            playbackOptions =
+                PlaybackCommandOptions(
+                    playbackRate = json.optDouble("defaultPlaybackSpeed", 1.0).toFloat().coerceIn(0.5f, 2.0f),
+                    repeatCount = json.optInt("defaultRepeatCount", json.optInt("repeatCount", 1)).coerceIn(1, 10),
+                    gapMs = json.optLong("gapMs", 0L).coerceIn(0L, 5_000L),
+                ),
+        )
+    }.getOrDefault(AudioAutoPlayConfig())
+}
+
+private fun stripJsonComments(text: String): String =
+    text
+        .replace(Regex("/\\*[\\s\\S]*?\\*/"), "")
+        .replace(Regex("^\\s*//.*$", setOf(RegexOption.MULTILINE)), "")
+
+private val AUDIO_CONFIG_REGEX =
+    Regex(
+        """<script[^>]*id=["']ankidroid-audio-config["'][^>]*>(.*?)</script>""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
 
 /**
  * Return card text with play buttons added, or stripped.

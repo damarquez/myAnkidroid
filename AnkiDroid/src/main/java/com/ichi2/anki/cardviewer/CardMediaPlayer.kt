@@ -179,20 +179,27 @@ class CardMediaPlayer : Closeable {
         }
     }
 
-    suspend fun autoplayAllForSide(cardSide: CardSide) {
+    suspend fun autoplayAllForSide(
+        cardSide: CardSide,
+        options: PlaybackCommandOptions = PlaybackCommandOptions(),
+    ) {
         if (config?.autoplay == true) {
-            playAllForSide(cardSide)
+            playAllForSide(cardSide, options, isAutomaticPlayback = true)
         }
     }
 
-    suspend fun playAllForSide(cardSide: CardSide) {
+    suspend fun playAllForSide(
+        cardSide: CardSide,
+        options: PlaybackCommandOptions = PlaybackCommandOptions(),
+        isAutomaticPlayback: Boolean = false,
+    ) {
         if (!isEnabled) return
         playAvTagsJob =
             playbackMutex.withLock {
                 playAvTagsJob?.cancelAndJoin()
                 scope.launch {
                     Timber.i("playing sounds for %s", cardSide)
-                    playAllAvTagsInternal(cardSide, isAutomaticPlayback = true)
+                    playAllAvTagsInternal(cardSide, isAutomaticPlayback = isAutomaticPlayback, options = options)
                     playAvTagsJob = null
                 }
             }
@@ -284,6 +291,7 @@ class CardMediaPlayer : Closeable {
     private suspend fun playAllAvTagsInternal(
         cardSide: CardSide,
         isAutomaticPlayback: Boolean,
+        options: PlaybackCommandOptions,
     ) {
         if (!isEnabled) return
         val avTagList =
@@ -296,7 +304,7 @@ class CardMediaPlayer : Closeable {
         try {
             for ((index, avTag) in avTagList.withIndex()) {
                 Timber.d("playing AV Tag %d/%d", index + 1, avTagList.size)
-                if (!play(avTag, isAutomaticPlayback)) {
+                if (!playTagWithOptions(avTag, isAutomaticPlayback, options)) {
                     Timber.d("stopping AV Tag playback early")
                     return
                 }
@@ -356,19 +364,28 @@ class CardMediaPlayer : Closeable {
             return@withContext true
         }
 
-    private suspend fun playOneInternal(
+    private suspend fun playTagWithOptions(
         tag: AvTag,
+        isAutomaticPlayback: Boolean,
         options: PlaybackCommandOptions,
-    ) {
+    ): Boolean {
         repeat(options.repeatCount) { index ->
-            val shouldContinue = play(tag, isAutomaticPlayback = false, playbackRate = options.playbackRate)
+            val shouldContinue = play(tag, isAutomaticPlayback = isAutomaticPlayback, playbackRate = options.playbackRate)
             if (!shouldContinue) {
-                return
+                return false
             }
             if (index < options.repeatCount - 1 && options.gapMs > 0L) {
                 delay(options.gapMs)
             }
         }
+        return true
+    }
+
+    private suspend fun playOneInternal(
+        tag: AvTag,
+        options: PlaybackCommandOptions,
+    ) {
+        playTagWithOptions(tag, isAutomaticPlayback = false, options)
     }
 
     /** Whether the provided side has available media */

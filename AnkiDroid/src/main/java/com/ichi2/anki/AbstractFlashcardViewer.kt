@@ -130,7 +130,10 @@ import com.ichi2.anki.libanki.SoundOrVideoTag
 import com.ichi2.anki.libanki.TTSTag
 import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.model.CardStateFilter
+import com.ichi2.anki.multimedia.AudioAutoPlayConfig
+import com.ichi2.anki.multimedia.AudioAutoPlayMode
 import com.ichi2.anki.multimedia.getAvTag
+import com.ichi2.anki.multimedia.parseAudioAutoPlayConfigFromHtml
 import com.ichi2.anki.multimedia.parseAudioPlayerOptions
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NavigationMatch
@@ -1470,6 +1473,7 @@ abstract class AbstractFlashcardViewer :
             cardMediaPlayer.loadCardAvTags(currentCard!!, linkedNoteDisplayMode)
         }
         cardContent = content.html
+        displayedAudioAutoPlayConfig = parseAudioAutoPlayConfigFromHtml(content.html)
         fillFlashcard()
         playMedia(false) // Play media if appropriate
     }
@@ -1487,7 +1491,13 @@ abstract class AbstractFlashcardViewer :
             Timber.w("media is not played as the activity is inactive")
             return
         }
-        if (cardMediaPlayer.config?.autoplay != true && !doMediaReplay) return
+        val shouldAutoplay =
+            when (displayedAudioAutoPlayConfig.mode) {
+                AudioAutoPlayMode.SYSTEM -> cardMediaPlayer.config?.autoplay == true
+                AudioAutoPlayMode.FORCE_YES -> true
+                AudioAutoPlayMode.FORCE_NO -> false
+            }
+        if (!shouldAutoplay && !doMediaReplay) return
         // Use TTS if TTS preference enabled and no other media source
         val useTTS = tts.enabled && !cardMediaPlayer.hasMedia(displayAnswer)
         // We need to play the media from the proper side of the card
@@ -1496,7 +1506,12 @@ abstract class AbstractFlashcardViewer :
                 val side = if (displayAnswer) SingleCardSide.BACK else SingleCardSide.FRONT
                 when (doMediaReplay) {
                     true -> cardMediaPlayer.replayAll(side)
-                    false -> cardMediaPlayer.playAllForSide(side.toCardSide())
+                    false ->
+                        cardMediaPlayer.playAllForSide(
+                            side.toCardSide(),
+                            displayedAudioAutoPlayConfig.playbackOptions,
+                            isAutomaticPlayback = true,
+                        )
                 }
             }
             return
@@ -2326,6 +2341,7 @@ abstract class AbstractFlashcardViewer :
     val writeLock: Lock
         get() = cardLock.writeLock()
     open var currentCard: Card? = null
+    private var displayedAudioAutoPlayConfig = AudioAutoPlayConfig()
 
     /** Refreshes the WebView after a crash  */
     fun destroyWebViewFrame() {

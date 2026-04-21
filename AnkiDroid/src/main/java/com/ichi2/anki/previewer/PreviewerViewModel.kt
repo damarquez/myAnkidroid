@@ -117,10 +117,10 @@ class PreviewerViewModel(
             backSideOnly.emit(!backSideOnly.value)
             if (!backSideOnly.value && showingAnswer.value) {
                 showQuestion()
-                cardMediaPlayer.autoplayAllForSide(CardSide.QUESTION)
+                autoplayMediaForDisplayedSide(CardSide.QUESTION)
             } else if (backSideOnly.value && !showingAnswer.value) {
                 showAnswer()
-                cardMediaPlayer.autoplayAllForSide(CardSide.ANSWER)
+                autoplayMediaForDisplayedSide(CardSide.ANSWER)
             }
         }
     }
@@ -160,7 +160,7 @@ class PreviewerViewModel(
         launchCatchingIO {
             if (!showingAnswer.value && !backSideOnly.value) {
                 showAnswer()
-                cardMediaPlayer.autoplayAllForSide(CardSide.ANSWER)
+                autoplayMediaForDisplayedSide(CardSide.ANSWER)
             } else {
                 updateCurrentIndex { it + 1 }
             }
@@ -301,7 +301,7 @@ class PreviewerViewModel(
                 else -> CardSide.QUESTION
             }
         cardMediaPlayer.loadCardAvTags(currentCard.await(), currentLinkedNoteDisplayMode())
-        cardMediaPlayer.autoplayAllForSide(side)
+        autoplayMediaForDisplayedSide(side)
     }
 
     override suspend fun onLinkedNoteDisplayModeChanged() {

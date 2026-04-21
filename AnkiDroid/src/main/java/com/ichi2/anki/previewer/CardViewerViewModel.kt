@@ -31,7 +31,10 @@ import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
+import com.ichi2.anki.multimedia.AudioAutoPlayConfig
+import com.ichi2.anki.multimedia.AudioAutoPlayMode
 import com.ichi2.anki.multimedia.getAvTag
+import com.ichi2.anki.multimedia.parseAudioAutoPlayConfigFromHtml
 import com.ichi2.anki.multimedia.parseAudioPlayerOptions
 import com.ichi2.anki.multimedia.replaceAvRefsWithPlayButtons
 import com.ichi2.anki.notelinks.expandNoteLinksToHtml
@@ -64,6 +67,7 @@ abstract class CardViewerViewModel(
     val showingAnswer = savedStateHandle.getMutableStateFlow(KEY_SHOWING_ANSWER, false)
     val linkedNoteDisplayMode =
         savedStateHandle.getMutableStateFlow(KEY_LINKED_NOTE_DISPLAY_MODE, LinkedNoteDisplayMode.MERGED.name)
+    private var displayedAudioAutoPlayConfig = AudioAutoPlayConfig()
 
     protected val cardMediaPlayer =
         CardMediaPlayer(
@@ -171,12 +175,25 @@ abstract class CardViewerViewModel(
         val side = if (showingAnswer.value) CardSide.ANSWER else CardSide.QUESTION
         if (showingAnswer.value) showAnswer() else showQuestion()
         cardMediaPlayer.loadCardAvTags(currentCard.await(), currentLinkedNoteDisplayMode())
-        cardMediaPlayer.autoplayAllForSide(side)
+        autoplayMediaForDisplayedSide(side)
     }
 
     protected fun currentLinkedNoteDisplayMode(): LinkedNoteDisplayMode =
         runCatching { LinkedNoteDisplayMode.valueOf(linkedNoteDisplayMode.value) }
             .getOrDefault(LinkedNoteDisplayMode.MERGED)
+
+    protected suspend fun autoplayMediaForDisplayedSide(side: CardSide) {
+        when (displayedAudioAutoPlayConfig.mode) {
+            AudioAutoPlayMode.SYSTEM -> cardMediaPlayer.autoplayAllForSide(side, displayedAudioAutoPlayConfig.playbackOptions)
+            AudioAutoPlayMode.FORCE_YES ->
+                cardMediaPlayer.playAllForSide(
+                    side,
+                    displayedAudioAutoPlayConfig.playbackOptions,
+                    isAutomaticPlayback = true,
+                )
+            AudioAutoPlayMode.FORCE_NO -> Unit
+        }
+    }
 
     private suspend fun bodyClass() = bodyClassForCardOrd(currentCard.await().ord)
 
@@ -208,6 +225,7 @@ abstract class CardViewerViewModel(
                 )
             }
         val question = mungeQA(questionData)
+        displayedAudioAutoPlayConfig = parseAudioAutoPlayConfigFromHtml(question)
         val answer =
             withCol {
                 media.escapeMediaFilenames(
@@ -247,6 +265,7 @@ abstract class CardViewerViewModel(
                 )
             }
         val answer = mungeQA(answerData)
+        displayedAudioAutoPlayConfig = parseAudioAutoPlayConfigFromHtml(answer)
 
         eval.emit("_showAnswer(${Json.encodeToString(answer)}, '${bodyClass()}');")
     }

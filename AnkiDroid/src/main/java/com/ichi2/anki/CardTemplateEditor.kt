@@ -1700,6 +1700,9 @@ open class CardTemplateEditor :
                   "repeatCounts": [1, 2, 3],
                   // defaultRepeatCount: initial repeat count selected when the card opens.
                   "defaultRepeatCount": 1,
+                  // autoPlayMode: "system" follows Anki's autoplay setting, "forceYes" always autoplays,
+                  // and "forceNo" suppresses autoplay for this card side. If absent, defaults to "system".
+                  "autoPlayMode": "system",
                   // gapMs: delay between repetitions in milliseconds.
                   "gapMs": 150,
                   // prefix / suffix: optional text shown immediately before/after each native audio player.
