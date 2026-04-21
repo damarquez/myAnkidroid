@@ -32,6 +32,12 @@
   --ankidroid-audio-stop-bg: #8b2e2e;
   --ankidroid-audio-stop-color: #fff;
   --ankidroid-audio-stop-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --ankidroid-audio-stop-opacity: 0.72;
+  --ankidroid-audio-stop-padding: 0.38em 0.6em;
+  --ankidroid-audio-stop-line-height: 1;
+  --ankidroid-audio-stop-top: 12px;
+  --ankidroid-audio-stop-right: 12px;
+  --ankidroid-audio-stop-radius: 999px;
 
   /* Custom Audio Player Colors */
   --audio-player-bg: #282a36; /* Dark background - this will remain dark */
@@ -487,6 +493,7 @@ a[href^="ankidroid-note://"]:visited {
   --ankidroid-audio-secondary-opacity: 1;
   --ankidroid-audio-stop-bg-night: #b03a3a;
   --ankidroid-audio-stop-color-night: #fff;
+  --ankidroid-audio-stop-opacity: 0.72;
 
 /* Field Label Colors for Dark Mode */
   --field-label-color: darkkhaki;

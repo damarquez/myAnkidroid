@@ -236,20 +236,21 @@ scale up, but not down.  */
 
 .ankidroid-native-audio-stop-all {
     position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 999999;
+    top: var(--ankidroid-audio-stop-top, 12px);
+    right: var(--ankidroid-audio-stop-right, 12px);
+    z-index: 999999;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--ankidroid-audio-stop-radius, 999px);
     margin: 0;
-    padding: 0.4em 0.85em;
-    font: inherit;
-    line-height: 1.2;
-    cursor: pointer;
+      padding: var(--ankidroid-audio-stop-padding, 0.4em 0.85em);
+      font: var(--ankidroid-audio-stop-font, inherit);
+      line-height: var(--ankidroid-audio-stop-line-height, 1.2);
+      cursor: pointer;
     background: var(--ankidroid-audio-stop-bg, #c62828);
     color: var(--ankidroid-audio-stop-color, #fff);
     box-shadow: var(--ankidroid-audio-stop-shadow, 0 2px 8px rgba(0, 0, 0, 0.25));
-}
+    opacity: var(--ankidroid-audio-stop-opacity, 1);
+  }
 
 .night_mode .ankidroid-native-audio-stop-all {
     background: var(--ankidroid-audio-stop-bg-night, #b71c1c);
