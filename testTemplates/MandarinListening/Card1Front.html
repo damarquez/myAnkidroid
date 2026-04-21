@@ -1,0 +1,47 @@
+<!--
+   Header: FrontSide and stop all audio button 
+-->
+<table style="width:100%; border-collapse:collapse;">
+  <tr>
+    <td style="text-align:center; border:none; vertical-align:top; width:90%;">
+     
+    </td>
+    <td style="text-align:center; border:none; vertical-align:top; width:10%;">
+     
+    </td>
+  </tr>
+</table>
+
+<br>
+Listen carefully and write the Pinyin for:
+<br>
+
+<br>
+
+{{#Listen}}
+<div class="field-container listen-field">
+    <br><div class="field-label">Listen:</div><br>
+    <div id="target-Listen"></div>
+    
+    {{Listen}}
+</div>
+<hr>
+{{/Listen}}
+
+
+
+
+<script id="ankidroid-audio-config" type="application/json">
+{
+  "playbackSpeeds": [1.0, 0.5, 0.7, 0.8, 0.9, 1.2, 1.5],
+  "defaultPlaybackSpeed": 1.0,
+  "repeatCounts": [1, 2, 3, 5, 10],
+  "defaultRepeatCount": 3,
+  "gapMs": 150,
+  "showStopAllButton": true,
+  "prefix": "\n"
+}
+</script>
+
+
+

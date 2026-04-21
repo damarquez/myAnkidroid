@@ -1,4 +1,6 @@
 {{FrontSide}}
+<br>
+{{Front}}
 <br><br>
 
 <!--
@@ -351,7 +353,7 @@
     // Required: the main instruction sent to the AI service.
     "prompt": " is a Mandarin word. Provide 5 simple, beginner level examples (5-20 chars) of that exact word. Return ONLY raw text. No markdown fences (```), no bold, no intro/outro.\\n\\nRequired Template (remove [], but leave quotes or ()): \\n\\n1.[Mandarin](*1)\\n([Pinyin])(*2)\\n\"[English]\"(*2)\\n\\n(Blank line)\\n\\n2.[Mandarin](*1)\\n...\\nExample:\\n1. 这是我的书。 (*1)\\n   (Zhè shì wǒ de shū.) (*2)\\n   \"This is my book.\" (*3)\\n\\n2. 红色的花好看。(*1)\\n   (Hóngsè de huā hǎokàn.) (*2)\\n   \"The red flowers are pretty.\" (*3)\\n\\nStrict Rules:\\n\\n- You must use sequential numbers (1-5).\\n- You must add (*1) at the end of the Mandarin line, (*2) at end of Pinyin line, (*3) for example line.\\n- You must put a line break after Mandarin and Pinyin.\\n- You must leave exactly one blank line between examples.\\n- Only add a brief note at the very end if absolutely necessary.",
     // Optional: fixed text placed before the prompt.
-    "prefixText": "",
+    "prefixText": " ",
     // Optional: field value placed before the prompt.
     "prefixField": "Front",
     // Optional: fixed text placed after the prompt.
