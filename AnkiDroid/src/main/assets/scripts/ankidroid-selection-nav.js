@@ -286,21 +286,7 @@
             btn.type = "button";
             btn.className = SEARCH_BTN_CLASS;
             btn.textContent = label;
-
-            btn.style.position = "fixed";
-            btn.style.zIndex = "999999";
-            btn.style.minWidth = "84px";
             btn.style.height = btnHeight + "px";
-            btn.style.padding = "var(--ankidroid-selection-nav-button-padding, 0 14px)";
-            btn.style.border = "var(--ankidroid-selection-nav-button-border, none)";
-            btn.style.borderRadius = "var(--ankidroid-selection-nav-button-radius, 18px)";
-            btn.style.background = "var(--ankidroid-selection-nav-button-bg, #2e7d32)";
-            btn.style.color = "var(--ankidroid-selection-nav-button-color, #fff)";
-            btn.style.fontSize = "var(--ankidroid-selection-nav-button-font-size, 14px)";
-            btn.style.fontWeight = "var(--ankidroid-selection-nav-button-font-weight, 600)";
-            btn.style.boxShadow =
-                "var(--ankidroid-selection-nav-button-shadow, 0 3px 10px rgba(0,0,0,0.25))";
-            btn.style.opacity = "var(--ankidroid-selection-nav-button-opacity, 0.96)";
 
             btn.addEventListener("mousedown", function (e) {
                 e.preventDefault();

@@ -38,6 +38,10 @@
   --ankidroid-audio-stop-top: 12px;
   --ankidroid-audio-stop-right: 12px;
   --ankidroid-audio-stop-radius: 999px;
+  --ankidroid-selection-nav-button-bg: #2e2e2e;
+  --ankidroid-selection-nav-button-color: #ffffff;
+  --ankidroid-selection-nav-button-border: 2px solid #ffffff;
+  --ankidroid-selection-nav-button-shadow: 0 0 0 1px rgba(255,255,255,0.95), 0 3px 10px rgba(0,0,0,0.25);
 
   /* Custom Audio Player Colors */
   --audio-player-bg: #282a36; /* Dark background - this will remain dark */
