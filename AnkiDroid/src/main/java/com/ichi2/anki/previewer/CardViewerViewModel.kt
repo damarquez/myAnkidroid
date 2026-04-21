@@ -25,12 +25,14 @@ import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.OnErrorListener
 import com.ichi2.anki.cardviewer.CardMediaPlayer
 import com.ichi2.anki.cardviewer.MediaErrorHandler
+import com.ichi2.anki.cardviewer.PlaybackCommandOptions
 import com.ichi2.anki.launchCatchingIO
 import com.ichi2.anki.libanki.Card
 import com.ichi2.anki.libanki.LinkedNoteDisplayMode
 import com.ichi2.anki.libanki.TtsPlayer
 import com.ichi2.anki.linkednotes.injectLinkedNoteBanner
 import com.ichi2.anki.multimedia.getAvTag
+import com.ichi2.anki.multimedia.parseAudioPlayerOptions
 import com.ichi2.anki.multimedia.replaceAvRefsWithPlayButtons
 import com.ichi2.anki.notelinks.expandNoteLinksToHtml
 import com.ichi2.anki.pages.AnkiServer
@@ -101,8 +103,24 @@ abstract class CardViewerViewModel(
 
     fun playSoundFromUrl(url: String) {
         launchCatchingIO {
+            val options = parseAudioPlayerOptions(url)
             getAvTag(currentCard.await(), url)?.let {
-                cardMediaPlayer.playOne(it)
+                emitAudioPlayerState(
+                    state = "playing",
+                    playerId = options.playerId,
+                )
+                cardMediaPlayer.playOneAndAwait(
+                    it,
+                    PlaybackCommandOptions(
+                        playbackRate = options.playbackRate,
+                        repeatCount = options.repeatCount,
+                        gapMs = options.gapMs,
+                    ),
+                )
+                emitAudioPlayerState(
+                    state = "complete",
+                    playerId = options.playerId,
+                )
             }
         }
     }
