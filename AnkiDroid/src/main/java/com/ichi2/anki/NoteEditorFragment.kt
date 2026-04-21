@@ -2104,7 +2104,7 @@ class NoteEditorFragment :
                 val selectedFilename = selectedExistingMediaFilename(textBox)
                 val existingRenameItem = menu.findItem(renameMediaMenuId)
                 if (selectedFilename != null && existingRenameItem == null) {
-                    menu.add(Menu.NONE, renameMediaMenuId, 1, R.string.note_editor_rename_media_file_action)
+                    menu.add(Menu.NONE, renameMediaMenuId, 1, R.string.note_editor_modify_media_file_action)
                     updated = true
                 } else if (selectedFilename == null && existingRenameItem != null) {
                     menu.removeItem(renameMediaMenuId)
@@ -2118,7 +2118,7 @@ class NoteEditorFragment :
                 item: MenuItem,
             ): Boolean =
                 if (item.itemId == renameMediaMenuId) {
-                    showRenameMediaFilenameDialog(textBox)
+                    showModifyMediaFileDialog(textBox)
                     mode.finish()
                     true
                 } else {
@@ -2131,115 +2131,118 @@ class NoteEditorFragment :
         }
     }
 
-    private fun showRenameMediaFilenameDialog(textBox: FieldEditText) {
+    private fun showModifyMediaFileDialog(textBox: FieldEditText) {
         val oldFilename = selectedExistingMediaFilename(textBox) ?: return
-        val dialog =
-            AlertDialog
-                .Builder(requireContext())
-                .show {
-                    title(R.string.note_editor_rename_media_file_title)
-                    positiveButton(R.string.rename) {
-                        val newFilename =
-                            (it as AlertDialog)
-                                .getInputField()
-                                .text
-                                .toString()
-                                .trim()
-                        if (newFilename.isEmpty() || newFilename == oldFilename) {
-                            return@positiveButton
-                        }
-                        launchCatchingTask {
-                            val currentSavedNoteId = editorNote?.id?.takeIf { !addNote }
-                            val otherSavedNotesCount =
-                                withCol {
-                                    countSavedNotesReferencingMediaFilename(
-                                        filename = oldFilename,
-                                        excludeNoteId = currentSavedNoteId,
-                                    )
-                                }
-                            showRenameMediaFilenameConfirmationDialog(
-                                oldFilename = oldFilename,
-                                newFilename = newFilename,
-                                otherSavedNotesCount = otherSavedNotesCount,
-                            )
-                        }
-                    }
-                    negativeButton(R.string.dialog_cancel)
-                    setView(R.layout.dialog_generic_text_input)
-                }.input(
-                    hint = getString(R.string.note_editor_rename_media_file_hint),
-                    prefill = oldFilename,
-                    waitForPositiveButton = false,
-                    displayKeyboard = true,
-                ) { alertDialog, text ->
-                    val candidate = text.toString().trim()
-                    when {
-                        candidate.isBlank() -> {
-                            alertDialog.getInputTextLayout().error = null
-                            alertDialog.positiveButton.isEnabled = false
-                        }
-                        candidate == oldFilename -> {
-                            alertDialog.getInputTextLayout().error = null
-                            alertDialog.positiveButton.isEnabled = false
-                        }
-                        !isValidMediaFilename(candidate) -> {
-                            alertDialog.getInputTextLayout().error =
-                                getString(R.string.note_editor_rename_media_file_invalid)
-                            alertDialog.positiveButton.isEnabled = false
-                        }
-                        getColUnsafe.media.have(candidate) -> {
-                            alertDialog.getInputTextLayout().error = getString(R.string.error_name_exists)
-                            alertDialog.positiveButton.isEnabled = false
-                        }
-                        else -> {
-                            alertDialog.getInputTextLayout().error = null
-                            alertDialog.positiveButton.isEnabled = true
-                        }
-                    }
+        launchCatchingTask {
+            val mediaFile = File(getColUnsafe.media.dir, oldFilename)
+            val modifyOptions =
+                showImageImportOptionsDialog(
+                    imageFile = mediaFile,
+                    dialogTitleRes = R.string.note_editor_modify_media_file_title,
+                    existingFilename = oldFilename,
+                    requireActualChange = true,
+                ) ?: return@launchCatchingTask
+
+            val currentSavedNoteId = editorNote?.id?.takeIf { !addNote }
+            val otherSavedNotesCount =
+                withCol {
+                    countSavedNotesReferencingMediaFilename(
+                        filename = oldFilename,
+                        excludeNoteId = currentSavedNoteId,
+                    )
                 }
-        dialog.positiveButton.isEnabled = false
+            showModifyMediaFileConfirmationDialog(
+                oldFilename = oldFilename,
+                modifyOptions = modifyOptions,
+                otherSavedNotesCount = otherSavedNotesCount,
+            )
+        }
     }
 
-    private fun showRenameMediaFilenameConfirmationDialog(
+    private fun showModifyMediaFileConfirmationDialog(
         oldFilename: String,
-        newFilename: String,
+        modifyOptions: ImageImportOptions,
         otherSavedNotesCount: Int,
     ) {
+        val newFilename = modifyOptions.filename
+        val compressionPercent = modifyOptions.compressionPercent
         val message =
-            resources.getQuantityString(
-                R.plurals.note_editor_rename_media_file_confirm_message,
-                otherSavedNotesCount,
-                oldFilename,
-                newFilename,
-                otherSavedNotesCount,
-            )
+            if (newFilename == oldFilename) {
+                resources.getQuantityString(
+                    R.plurals.note_editor_modify_media_file_confirm_message_same_name,
+                    otherSavedNotesCount,
+                    oldFilename,
+                    otherSavedNotesCount,
+                )
+            } else {
+                resources.getQuantityString(
+                    R.plurals.note_editor_modify_media_file_confirm_message_renamed,
+                    otherSavedNotesCount,
+                    oldFilename,
+                    newFilename,
+                    otherSavedNotesCount,
+                )
+            }
         AlertDialog.Builder(requireContext()).show {
-            title(R.string.note_editor_rename_media_file_confirm_title)
+            title(R.string.note_editor_modify_media_file_confirm_title)
             message(text = message)
-            positiveButton(R.string.rename) {
+            positiveButton(R.string.dialog_ok) {
                 launchCatchingTask {
-                    withProgress(R.string.note_editor_rename_media_file_progress) {
-                        val updatedSavedNotes =
-                            withCol {
-                                renameMediaFilenameReferencesInSavedNotes(
-                                    oldFilename = oldFilename,
-                                    newFilename = newFilename,
+                    withProgress(R.string.note_editor_modify_media_file_progress) {
+                        val currentMediaFile = File(getColUnsafe.media.dir, oldFilename)
+                        val preparedFile =
+                            withContext(Dispatchers.Default) {
+                                prepareImageFileForImport(
+                                    sourceFile = currentMediaFile,
+                                    requestedFilename = newFilename,
+                                    compressionPercent = compressionPercent,
+                                    workingDirectory = requireContext().cacheDir,
+                                    deleteSourceWhenDone = false,
                                 )
                             }
-                        val updatedCurrentFields = applyMediaFilenameRenameToCurrentEditor(oldFilename, newFilename)
-                        saveCurrentEditedNoteAfterMediaRename()
-                        if (updatedSavedNotes > 0 || updatedCurrentFields > 0) {
+                        if (preparedFile == null) {
+                            showSnackbar(R.string.note_editor_image_import_prepare_failed)
+                            return@withProgress
+                        }
+                        val updatedSavedNotes =
+                            try {
+                                withCol {
+                                    modifyExistingMediaFileInSavedNotes(
+                                        oldFilename = oldFilename,
+                                        newFilename = newFilename,
+                                        preparedFile = preparedFile,
+                                    )
+                                }
+                            } finally {
+                                if (preparedFile != currentMediaFile && preparedFile.exists()) {
+                                    preparedFile.delete()
+                                }
+                            }
+                        val updatedCurrentFields =
+                            if (newFilename != oldFilename) {
+                                applyMediaFilenameRenameToCurrentEditor(oldFilename, newFilename)
+                            } else {
+                                0
+                            }
+                        if (newFilename != oldFilename) {
+                            saveCurrentEditedNoteAfterMediaRename()
+                        }
+                        if (updatedSavedNotes > 0 || updatedCurrentFields > 0 || compressionPercent > 0) {
                             changed = true
                             reloadRequired = true
                         }
-                        showSnackbar(
-                            getString(
-                                R.string.note_editor_rename_media_file_success,
-                                oldFilename,
-                                newFilename,
-                                updatedSavedNotes,
-                            ),
-                        )
+                        val successMessage =
+                            if (newFilename == oldFilename) {
+                                getString(R.string.note_editor_modify_media_file_success_same_name, oldFilename)
+                            } else {
+                                getString(
+                                    R.string.note_editor_modify_media_file_success_renamed,
+                                    oldFilename,
+                                    newFilename,
+                                    updatedSavedNotes,
+                                )
+                            }
+                        showSnackbar(successMessage)
                     }
                 }
             }
@@ -2534,7 +2537,12 @@ class NoteEditorFragment :
         return true
     }
 
-    private suspend fun showImageImportOptionsDialog(imageFile: File): ImageImportOptions? =
+    private suspend fun showImageImportOptionsDialog(
+        imageFile: File,
+        dialogTitleRes: Int = R.string.note_editor_image_import_title,
+        existingFilename: String? = null,
+        requireActualChange: Boolean = false,
+    ): ImageImportOptions? =
         suspendCancellableCoroutine { continuation ->
             val previewInfo = buildImageImportPreviewInfo(imageFile)
             val contentView =
@@ -2577,7 +2585,7 @@ class NoteEditorFragment :
             var completed = false
             val dialog =
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.note_editor_image_import_title)
+                    .setTitle(dialogTitleRes)
                     .setView(contentView)
                     .setPositiveButton(R.string.dialog_ok, null)
                     .setNegativeButton(R.string.dialog_cancel, null)
@@ -2598,7 +2606,7 @@ class NoteEditorFragment :
                             R.string.note_editor_image_import_keep_extension,
                             previewInfo.originalExtensionWithDot,
                         )
-                    getColUnsafe.media.have(candidate) -> getString(R.string.error_name_exists)
+                    getColUnsafe.media.have(candidate) && candidate != existingFilename -> getString(R.string.error_name_exists)
                     else -> null
                 }
 
@@ -2621,7 +2629,9 @@ class NoteEditorFragment :
                     )
                 val error = validateFilename(candidateFilename())
                 filenameLayout.error = error
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled = error == null
+                val hasActualChange =
+                    candidateFilename() != existingFilename || compressionPercent > 0 || !requireActualChange
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled = error == null && hasActualChange
             }
 
             dialog.setOnShowListener {
@@ -2714,7 +2724,10 @@ class NoteEditorFragment :
         sourceFile: File,
         requestedFilename: String,
         compressionPercent: Int,
+        workingDirectory: File? = sourceFile.parentFile,
+        deleteSourceWhenDone: Boolean = true,
     ): File? {
+        val targetDirectory = workingDirectory ?: return null
         var workingFile = sourceFile
 
         if (compressionPercent > 0) {
@@ -2723,18 +2736,24 @@ class NoteEditorFragment :
                     sourceFile = sourceFile,
                     requestedFilename = requestedFilename,
                     compressionPercent = compressionPercent,
+                    workingDirectory = targetDirectory,
                 ) ?: return null
         }
 
         if (workingFile.name != requestedFilename) {
-            val renamedFile = copyMediaFileWithName(workingFile, requestedFilename) ?: return null
+            val renamedFile =
+                copyMediaFileWithName(
+                    sourceFile = workingFile,
+                    requestedFilename = requestedFilename,
+                    targetDirectory = targetDirectory,
+                ) ?: return null
             if (workingFile != sourceFile) {
                 workingFile.delete()
             }
             workingFile = renamedFile
         }
 
-        if (workingFile != sourceFile && sourceFile.exists()) {
+        if (deleteSourceWhenDone && workingFile != sourceFile && sourceFile.exists()) {
             sourceFile.delete()
         }
 
@@ -2745,6 +2764,7 @@ class NoteEditorFragment :
         sourceFile: File,
         requestedFilename: String,
         compressionPercent: Int,
+        workingDirectory: File,
     ): File? {
         val fileNameAndExtension = FileNameAndExtension.fromString(requestedFilename) ?: return null
         val extension = fileNameAndExtension.extensionWithDot.removePrefix(".").lowercase(Locale.ROOT)
@@ -2766,7 +2786,7 @@ class NoteEditorFragment :
                 File.createTempFile(
                     fileNameAndExtension.renameForCreateTempFile().fileName,
                     fileNameAndExtension.extensionWithDot,
-                    sourceFile.parentFile,
+                    workingDirectory,
                 )
             FileOutputStream(tempFile).use { outputStream ->
                 when (extension) {
@@ -2784,10 +2804,10 @@ class NoteEditorFragment :
     private fun copyMediaFileWithName(
         sourceFile: File,
         requestedFilename: String,
+        targetDirectory: File,
     ): File? =
         try {
-            val parent = sourceFile.parentFile ?: return null
-            val destination = parent.withFileNameSafe(requestedFilename)
+            val destination = targetDirectory.withFileNameSafe(requestedFilename)
             if (destination == sourceFile) {
                 sourceFile
             } else {
@@ -4634,20 +4654,30 @@ class NoteEditorFragment :
         }
     }
 
-    private fun Collection.renameMediaFilenameReferencesInSavedNotes(
+    private fun Collection.modifyExistingMediaFileInSavedNotes(
         oldFilename: String,
         newFilename: String,
+        preparedFile: File,
     ): Int {
         check(media.have(oldFilename)) { "Media file does not exist: $oldFilename" }
-        check(!media.have(newFilename)) { "Media file already exists: $newFilename" }
-
-        val oldFile = File(media.dir, oldFilename)
-        val createdFilename = media.writeData(newFilename, oldFile.readBytes().toByteString())
-        check(createdFilename == newFilename) {
-            "Media backend renamed '$newFilename' unexpectedly to '$createdFilename'"
+        if (newFilename != oldFilename) {
+            check(!media.have(newFilename)) { "Media file already exists: $newFilename" }
         }
 
         try {
+            if (newFilename == oldFilename) {
+                media.trashFiles(listOf(oldFilename))
+                val recreatedFilename = media.writeData(oldFilename, preparedFile.readBytes().toByteString())
+                check(recreatedFilename == oldFilename) {
+                    "Media backend renamed '$oldFilename' unexpectedly to '$recreatedFilename'"
+                }
+                return 0
+            }
+
+            val createdFilename = media.writeData(newFilename, preparedFile.readBytes().toByteString())
+            check(createdFilename == newFilename) {
+                "Media backend renamed '$newFilename' unexpectedly to '$createdFilename'"
+            }
             val noteIds = findSavedNoteIdsReferencingMediaFilename(oldFilename)
             val notesToUpdate =
                 noteIds.mapNotNull { noteId ->
@@ -4669,7 +4699,9 @@ class NoteEditorFragment :
             media.trashFiles(listOf(oldFilename))
             return notesToUpdate.size
         } catch (exception: Exception) {
-            runCatching { media.trashFiles(listOf(newFilename)) }
+            if (newFilename != oldFilename) {
+                runCatching { media.trashFiles(listOf(newFilename)) }
+            }
             throw exception
         }
     }

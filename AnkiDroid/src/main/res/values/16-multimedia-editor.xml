@@ -20,15 +20,29 @@
     <string name="multimedia_editor_popup_audio">Record audio</string>
     <string name="multimedia_editor_popup_cloze">Cloze deletion</string>
     <string name="note_editor_rename_media_file_action">Rename media file</string>
+    <string name="note_editor_modify_media_file_action">Modify media file</string>
     <string name="note_editor_rename_media_file_title">Rename media file</string>
+    <string name="note_editor_modify_media_file_title">Modify media file</string>
     <string name="note_editor_rename_media_file_hint">New filename</string>
     <string name="note_editor_rename_media_file_confirm_title">Confirm media rename</string>
+    <string name="note_editor_modify_media_file_confirm_title">Confirm media changes</string>
     <string name="note_editor_rename_media_file_invalid">Invalid filename</string>
     <string name="note_editor_rename_media_file_progress">Renaming media file…</string>
     <string name="note_editor_rename_media_file_success" comment="1$s old filename, 2$s new filename, 3$d updated saved notes">Renamed %1$s to %2$s. Updated %3$d saved note(s).</string>
+    <string name="note_editor_modify_media_file_progress">Modifying media file...</string>
+    <string name="note_editor_modify_media_file_success_same_name">Modified %1$s.</string>
+    <string name="note_editor_modify_media_file_success_renamed">Modified %1$s and renamed it to %2$s. Updated %3$d saved note(s).</string>
     <plurals name="note_editor_rename_media_file_confirm_message">
         <item quantity="one">Rename %1$s to %2$s? This will also update %3$d other saved note.</item>
         <item quantity="other">Rename %1$s to %2$s? This will also update %3$d other saved notes.</item>
+    </plurals>
+    <plurals name="note_editor_modify_media_file_confirm_message_same_name">
+        <item quantity="one">Modify %1$s? This media file is also used by %2$d other saved note.</item>
+        <item quantity="other">Modify %1$s? This media file is also used by %2$d other saved notes.</item>
+    </plurals>
+    <plurals name="note_editor_modify_media_file_confirm_message_renamed">
+        <item quantity="one">Modify %1$s and rename it to %2$s? This will also update %3$d other saved note.</item>
+        <item quantity="other">Modify %1$s and rename it to %2$s? This will also update %3$d other saved notes.</item>
     </plurals>
     <string name="note_editor_image_import_title">Image import options</string>
     <string name="note_editor_image_import_current_size">Current size: %1$s</string>
