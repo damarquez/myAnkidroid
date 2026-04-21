@@ -90,6 +90,7 @@ import anki.notes.NoteFieldsCheckResponse
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.google.protobuf.kotlin.toByteString
 import com.ichi2.anim.ActivityTransitionAnimation
 import com.ichi2.anki.CardBrowser.Companion.EXTRA_PICKED_NOTE_GUID
 import com.ichi2.anki.CollectionManager.TR
@@ -228,7 +229,10 @@ import com.ichi2.utils.KeyUtils
 import com.ichi2.utils.NoteFieldDecorator
 import com.ichi2.utils.TextViewUtil
 import com.ichi2.utils.configureView
+import com.ichi2.utils.getInputField
+import com.ichi2.utils.getInputTextLayout
 import com.ichi2.utils.iconAttr
+import com.ichi2.utils.input
 import com.ichi2.utils.message
 import com.ichi2.utils.negativeButton
 import com.ichi2.utils.neutralButton
@@ -2050,21 +2054,253 @@ class NoteEditorFragment :
     private fun getActionModeCallback(
         textBox: FieldEditText,
         clozeMenuId: Int,
-    ): ActionMode.Callback =
-        CustomActionModeCallback(
-            isClozeType,
-            getString(R.string.multimedia_editor_popup_cloze),
-            clozeMenuId,
-            onActionItemSelected = { mode, item ->
-                if (item.itemId == clozeMenuId) {
-                    convertSelectedTextToCloze(textBox, AddClozeType.INCREMENT_NUMBER)
+    ): ActionMode.Callback {
+        val renameMediaMenuId = View.generateViewId()
+        val baseCallback =
+            CustomActionModeCallback(
+                isClozeType,
+                getString(R.string.multimedia_editor_popup_cloze),
+                clozeMenuId,
+                onActionItemSelected = { mode, item ->
+                    if (item.itemId == clozeMenuId) {
+                        convertSelectedTextToCloze(textBox, AddClozeType.INCREMENT_NUMBER)
+                        mode.finish()
+                        true
+                    } else {
+                        false
+                    }
+                },
+            )
+        return object : ActionMode.Callback {
+            override fun onCreateActionMode(
+                mode: ActionMode,
+                menu: Menu,
+            ): Boolean = baseCallback.onCreateActionMode(mode, menu)
+
+            override fun onPrepareActionMode(
+                mode: ActionMode,
+                menu: Menu,
+            ): Boolean {
+                var updated = baseCallback.onPrepareActionMode(mode, menu)
+                val selectedFilename = selectedExistingMediaFilename(textBox)
+                val existingRenameItem = menu.findItem(renameMediaMenuId)
+                if (selectedFilename != null && existingRenameItem == null) {
+                    menu.add(Menu.NONE, renameMediaMenuId, 1, R.string.note_editor_rename_media_file_action)
+                    updated = true
+                } else if (selectedFilename == null && existingRenameItem != null) {
+                    menu.removeItem(renameMediaMenuId)
+                    updated = true
+                }
+                return updated
+            }
+
+            override fun onActionItemClicked(
+                mode: ActionMode,
+                item: MenuItem,
+            ): Boolean =
+                if (item.itemId == renameMediaMenuId) {
+                    showRenameMediaFilenameDialog(textBox)
                     mode.finish()
                     true
                 } else {
-                    false
+                    baseCallback.onActionItemClicked(mode, item)
                 }
-            },
-        )
+
+            override fun onDestroyActionMode(mode: ActionMode) {
+                baseCallback.onDestroyActionMode(mode)
+            }
+        }
+    }
+
+    private fun showRenameMediaFilenameDialog(textBox: FieldEditText) {
+        val oldFilename = selectedExistingMediaFilename(textBox) ?: return
+        val dialog =
+            AlertDialog
+                .Builder(requireContext())
+                .show {
+                    title(R.string.note_editor_rename_media_file_title)
+                    positiveButton(R.string.rename) {
+                        val newFilename =
+                            (it as AlertDialog)
+                                .getInputField()
+                                .text
+                                .toString()
+                                .trim()
+                        if (newFilename.isEmpty() || newFilename == oldFilename) {
+                            return@positiveButton
+                        }
+                        launchCatchingTask {
+                            val currentSavedNoteId = editorNote?.id?.takeIf { !addNote }
+                            val otherSavedNotesCount =
+                                withCol {
+                                    countSavedNotesReferencingMediaFilename(
+                                        filename = oldFilename,
+                                        excludeNoteId = currentSavedNoteId,
+                                    )
+                                }
+                            showRenameMediaFilenameConfirmationDialog(
+                                oldFilename = oldFilename,
+                                newFilename = newFilename,
+                                otherSavedNotesCount = otherSavedNotesCount,
+                            )
+                        }
+                    }
+                    negativeButton(R.string.dialog_cancel)
+                    setView(R.layout.dialog_generic_text_input)
+                }.input(
+                    hint = getString(R.string.note_editor_rename_media_file_hint),
+                    prefill = oldFilename,
+                    waitForPositiveButton = false,
+                    displayKeyboard = true,
+                ) { alertDialog, text ->
+                    val candidate = text.toString().trim()
+                    when {
+                        candidate.isBlank() -> {
+                            alertDialog.getInputTextLayout().error = null
+                            alertDialog.positiveButton.isEnabled = false
+                        }
+                        candidate == oldFilename -> {
+                            alertDialog.getInputTextLayout().error = null
+                            alertDialog.positiveButton.isEnabled = false
+                        }
+                        !isValidMediaFilename(candidate) -> {
+                            alertDialog.getInputTextLayout().error =
+                                getString(R.string.note_editor_rename_media_file_invalid)
+                            alertDialog.positiveButton.isEnabled = false
+                        }
+                        getColUnsafe.media.have(candidate) -> {
+                            alertDialog.getInputTextLayout().error = getString(R.string.error_name_exists)
+                            alertDialog.positiveButton.isEnabled = false
+                        }
+                        else -> {
+                            alertDialog.getInputTextLayout().error = null
+                            alertDialog.positiveButton.isEnabled = true
+                        }
+                    }
+                }
+        dialog.positiveButton.isEnabled = false
+    }
+
+    private fun showRenameMediaFilenameConfirmationDialog(
+        oldFilename: String,
+        newFilename: String,
+        otherSavedNotesCount: Int,
+    ) {
+        val message =
+            resources.getQuantityString(
+                R.plurals.note_editor_rename_media_file_confirm_message,
+                otherSavedNotesCount,
+                oldFilename,
+                newFilename,
+                otherSavedNotesCount,
+            )
+        AlertDialog.Builder(requireContext()).show {
+            title(R.string.note_editor_rename_media_file_confirm_title)
+            message(text = message)
+            positiveButton(R.string.rename) {
+                launchCatchingTask {
+                    withProgress(R.string.note_editor_rename_media_file_progress) {
+                        val updatedSavedNotes =
+                            withCol {
+                                renameMediaFilenameReferencesInSavedNotes(
+                                    oldFilename = oldFilename,
+                                    newFilename = newFilename,
+                                )
+                            }
+                        val updatedCurrentFields = applyMediaFilenameRenameToCurrentEditor(oldFilename, newFilename)
+                        saveCurrentEditedNoteAfterMediaRename()
+                        if (updatedSavedNotes > 0 || updatedCurrentFields > 0) {
+                            changed = true
+                            reloadRequired = true
+                        }
+                        showSnackbar(
+                            getString(
+                                R.string.note_editor_rename_media_file_success,
+                                oldFilename,
+                                newFilename,
+                                updatedSavedNotes,
+                            ),
+                        )
+                    }
+                }
+            }
+            negativeButton(R.string.dialog_cancel)
+        }
+    }
+
+    private suspend fun saveCurrentEditedNoteAfterMediaRename() {
+        if (addNote) {
+            return
+        }
+        if (selectedTags == null) {
+            selectedTags = ArrayList(0)
+        }
+
+        var modified = false
+        if (currentEditedCard != null && currentEditedCard!!.currentDeckId() != deckId) {
+            reloadRequired = true
+            undoableOp { setDeck(listOf(currentEditedCard!!.id), deckId) }
+            currentEditedCard!!.load(getColUnsafe)
+            editorNote = currentEditedCard!!.note(getColUnsafe)
+            currentEditedCard!!.did = deckId
+            modified = true
+        }
+
+        for (field in editFields!!) {
+            modified = modified or updateField(field)
+        }
+        for (tag in selectedTags!!) {
+            modified = modified || !editorNote!!.hasTag(getColUnsafe, tag = tag)
+        }
+        modified = modified || editorNote!!.tags.size > selectedTags!!.size
+
+        if (!modified) {
+            return
+        }
+
+        editorNote!!.setTagsFromStr(getColUnsafe, tagsAsString(selectedTags!!))
+        changed = true
+        undoableOp { updateNote(editorNote!!) }
+        isFieldEdited = false
+        isTagsEdited = false
+        delegate?.onNoteSaved()
+    }
+
+    private fun selectedExistingMediaFilename(textBox: FieldEditText): String? {
+        val selectedText = selectedText(textBox) ?: return null
+        return selectedText.takeIf { it.isNotBlank() && getColUnsafe.media.have(it) }
+    }
+
+    private fun selectedText(textBox: FieldEditText): String? {
+        val start = min(textBox.selectionStart, textBox.selectionEnd)
+        val end = max(textBox.selectionStart, textBox.selectionEnd)
+        if (start == end) {
+            return null
+        }
+        return textBox.text?.substring(start, end)
+    }
+
+    private fun isValidMediaFilename(filename: String): Boolean =
+        filename.isNotBlank() &&
+            !filename.contains('/') &&
+            !filename.contains('\\') &&
+            !filename.contains('\u0000')
+
+    private fun applyMediaFilenameRenameToCurrentEditor(
+        oldFilename: String,
+        newFilename: String,
+    ): Int {
+        var updatedFields = 0
+        for (index in editFields!!.indices) {
+            val currentValue = getCurrentFieldText(index)
+            val updatedValue = replaceMediaFilenameReferences(currentValue, oldFilename, newFilename)
+            if (updatedValue != currentValue) {
+                setFieldValueFromUi(index, updatedValue)
+                updatedFields += 1
+            }
+        }
+        return updatedFields
+    }
 
     @VisibleForTesting
     fun showMultimediaBottomSheet() {
@@ -4052,6 +4288,117 @@ class NoteEditorFragment :
         }
     }
 
+    private fun Collection.renameMediaFilenameReferencesInSavedNotes(
+        oldFilename: String,
+        newFilename: String,
+    ): Int {
+        check(media.have(oldFilename)) { "Media file does not exist: $oldFilename" }
+        check(!media.have(newFilename)) { "Media file already exists: $newFilename" }
+
+        val oldFile = File(media.dir, oldFilename)
+        val createdFilename = media.writeData(newFilename, oldFile.readBytes().toByteString())
+        check(createdFilename == newFilename) {
+            "Media backend renamed '$newFilename' unexpectedly to '$createdFilename'"
+        }
+
+        try {
+            val noteIds = findSavedNoteIdsReferencingMediaFilename(oldFilename)
+            val notesToUpdate =
+                noteIds.mapNotNull { noteId ->
+                    val note = getNote(noteId)
+                    var noteChanged = false
+                    for (index in note.values().indices) {
+                        val original = note.values()[index]
+                        val updated = replaceMediaFilenameReferences(original, oldFilename, newFilename)
+                        if (updated != original) {
+                            note.setField(index, updated)
+                            noteChanged = true
+                        }
+                    }
+                    note.takeIf { noteChanged }
+                }
+            if (notesToUpdate.isNotEmpty()) {
+                updateNotes(notesToUpdate)
+            }
+            media.trashFiles(listOf(oldFilename))
+            return notesToUpdate.size
+        } catch (exception: Exception) {
+            runCatching { media.trashFiles(listOf(newFilename)) }
+            throw exception
+        }
+    }
+
+    private fun Collection.countSavedNotesReferencingMediaFilename(
+        filename: String,
+        excludeNoteId: Long? = null,
+    ): Int = findSavedNoteIdsReferencingMediaFilename(filename).count { it != excludeNoteId }
+
+    private fun Collection.findSavedNoteIdsReferencingMediaFilename(filename: String): List<Long> =
+        db
+            .queryLongList(
+                "select id from notes where flds like ? escape '\\'",
+                buildSqlLikePattern(filename),
+            ).filter { noteId ->
+                runCatching { getNote(noteId) }
+                    .getOrNull()
+                    ?.values()
+                    ?.any { containsMediaFilenameReference(it, filename) } == true
+            }
+
+    private fun buildSqlLikePattern(literal: String): String =
+        "%" +
+            literal
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_") +
+            "%"
+
+    private fun containsMediaFilenameReference(
+        text: String,
+        filename: String,
+    ): Boolean {
+        if (text.contains("[sound:$filename]")) {
+            return true
+        }
+        return MediaReferenceRegexes.any { regex ->
+            regex.findAll(text).any { match ->
+                regex.extractMediaFilename(match) == filename
+            }
+        }
+    }
+
+    private fun replaceMediaFilenameReferences(
+        text: String,
+        oldFilename: String,
+        newFilename: String,
+    ): String {
+        var updated = text.replace("[sound:$oldFilename]", "[sound:$newFilename]")
+        MediaReferenceRegexes.forEachIndexed { index, regex ->
+            updated =
+                regex.replace(updated) { match ->
+                    val matchedFilename =
+                        when (index) {
+                            0, 2 -> match.groups[3]?.value
+                            1, 3 -> match.groups[2]?.value
+                            else -> null
+                        }
+                    if (matchedFilename == oldFilename) {
+                        match.value.replaceFirst(oldFilename, newFilename)
+                    } else {
+                        match.value
+                    }
+                }
+        }
+        return updated
+    }
+
+    private fun Regex.extractMediaFilename(match: MatchResult): String? =
+        when (MediaReferenceRegexes.indexOf(this)) {
+            0, 2 -> match.groups[3]?.value
+            1, 3 -> match.groups[2]?.value
+            else -> null
+        }
+
     private val toolbarButtons: ArrayList<CustomToolbarButton>
         get() {
             val set =
@@ -4651,6 +4998,14 @@ class NoteEditorFragment :
     }
 
     companion object {
+        private val MediaReferenceRegexes =
+            listOf(
+                Regex("(?i)(<(?:img|audio|source)\\b[^>]* src=(['\"])([^>]+?)\\2[^>]*>)"),
+                Regex("(?i)(<(?:img|audio|source)\\b[^>]* src=(?!['\"])([^ >]+)[^>]*?>)"),
+                Regex("(?i)(<object\\b[^>]* data=(['\"])([^>]+?)\\2[^>]*>)"),
+                Regex("(?i)(<object\\b[^>]* data=(?!['\"])([^ >]+)[^>]*?>)"),
+            )
+
         // DA 2020-04-13 - Refactoring Plans once tested:
         // * There is a difference in functionality depending on whether we are editing
         // * Extract mAddNote and mCurrentEditedCard into inner class. Gate mCurrentEditedCard on edit state.

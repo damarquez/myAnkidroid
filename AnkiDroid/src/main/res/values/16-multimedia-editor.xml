@@ -19,6 +19,17 @@
     <string name="multimedia_editor_popup_video_clip">Add video clip</string>
     <string name="multimedia_editor_popup_audio">Record audio</string>
     <string name="multimedia_editor_popup_cloze">Cloze deletion</string>
+    <string name="note_editor_rename_media_file_action">Rename media file</string>
+    <string name="note_editor_rename_media_file_title">Rename media file</string>
+    <string name="note_editor_rename_media_file_hint">New filename</string>
+    <string name="note_editor_rename_media_file_confirm_title">Confirm media rename</string>
+    <string name="note_editor_rename_media_file_invalid">Invalid filename</string>
+    <string name="note_editor_rename_media_file_progress">Renaming media file…</string>
+    <string name="note_editor_rename_media_file_success" comment="1$s old filename, 2$s new filename, 3$d updated saved notes">Renamed %1$s to %2$s. Updated %3$d saved note(s).</string>
+    <plurals name="note_editor_rename_media_file_confirm_message">
+        <item quantity="one">Rename %1$s to %2$s? This will also update %3$d other saved note.</item>
+        <item quantity="other">Rename %1$s to %2$s? This will also update %3$d other saved notes.</item>
+    </plurals>
 
     <!-- Field editing general -->
     <!-- these are button names to convert field type -->
