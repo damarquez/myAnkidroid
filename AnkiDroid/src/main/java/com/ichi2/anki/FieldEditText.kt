@@ -19,6 +19,7 @@ package com.ichi2.anki
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.LocaleList
@@ -50,6 +51,8 @@ class FieldEditText :
     NoteService.NoteField {
     override var ord = 0
     private var origBackground: Drawable? = null
+    private var origTextColors: ColorStateList? = null
+    private var origHintTextColors: ColorStateList? = null
     private var selectionChangeListener: TextSelectionListener? = null
     private var pasteListener: PasteListener? = null
 
@@ -85,6 +88,8 @@ class FieldEditText :
         }
         minimumWidth = 400
         origBackground = background
+        origTextColors = textColors
+        origHintTextColors = hintTextColors
         // Fixes bug where new instances of this object have wrong colors, probably
         // from some reuse mechanic in Android.
         setDefaultStyle()
@@ -126,6 +131,16 @@ class FieldEditText :
      */
     fun setDupeStyle() {
         setBackgroundColor(MaterialColors.getColor(context, R.attr.duplicateColor, 0))
+        if (context.sharedPrefs().getBoolean("highContrast", false)) {
+            val invertedTextColor =
+                MaterialColors.getColor(
+                    context,
+                    com.google.android.material.R.attr.colorOnPrimary,
+                    currentTextColor,
+                )
+            setTextColor(invertedTextColor)
+            setHintTextColor(invertedTextColor)
+        }
     }
 
     /**
@@ -133,6 +148,8 @@ class FieldEditText :
      */
     fun setDefaultStyle() {
         background = origBackground
+        origTextColors?.let(::setTextColor)
+        origHintTextColors?.let(::setHintTextColor)
     }
 
     fun setContent(
