@@ -101,7 +101,16 @@ fun bodyClassForCardOrd(
     nightMode: Boolean = Themes.isNightTheme,
 ): String = "card card${cardOrd + 1} ${bodyClass(nightMode)} mathjax-rendered"
 
-private fun bodyClass(nightMode: Boolean = Themes.isNightTheme): String = if (nightMode) "nightMode night_mode" else ""
+private fun bodyClass(nightMode: Boolean = Themes.isNightTheme): String {
+    val classes = mutableListOf<String>()
+    if (nightMode) {
+        classes += listOf("nightMode", "night_mode")
+    }
+    if (Prefs.highContrast) {
+        classes += "ankidroid_high_contrast"
+    }
+    return classes.joinToString(" ")
+}
 
 fun MaterialCardView.setFrameStyle() {
     if (Prefs.frameStyle == FrameStyle.BOX && Prefs.isNewStudyScreenEnabled) {

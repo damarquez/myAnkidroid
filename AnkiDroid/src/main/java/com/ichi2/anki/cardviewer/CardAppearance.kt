@@ -28,6 +28,7 @@ class CardAppearance(
     private val cardZoom: Int,
     private val imageZoom: Int,
     private val centerVertically: Boolean,
+    private val highContrast: Boolean,
 ) {
     /** Below could be in a better abstraction.  */
     fun appendCssStyle(style: StringBuilder) {
@@ -47,6 +48,9 @@ class CardAppearance(
         val cardClass = StringBuilder()
         if (centerVertically) {
             cardClass.append(" vertically_centered")
+        }
+        if (highContrast) {
+            cardClass.append(" ankidroid_high_contrast")
         }
         if (currentTheme is NightTheme) {
             // Enable the night-mode class
@@ -85,7 +89,8 @@ class CardAppearance(
             val cardZoom = preferences.getInt("cardZoom", 100)
             val imageZoom = preferences.getInt("imageZoom", 100)
             val centerVertically = preferences.getBoolean("centerVertically", false)
-            return CardAppearance(customFonts, cardZoom, imageZoom, centerVertically)
+            val highContrast = preferences.getBoolean("highContrast", false)
+            return CardAppearance(customFonts, cardZoom, imageZoom, centerVertically, highContrast)
         }
 
         fun fixBoldStyle(content: String): String {

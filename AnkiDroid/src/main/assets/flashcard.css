@@ -257,6 +257,70 @@ scale up, but not down.  */
     color: var(--ankidroid-audio-stop-color-night, #fff);
 }
 
+.ankidroid_high_contrast {
+  --ankidroid-audio-player-bg: #ffffff;
+  --ankidroid-audio-player-shadow: none;
+  --ankidroid-audio-button-bg: #ffffff;
+  --ankidroid-audio-button-color: #000000;
+  --ankidroid-audio-button-hover-bg: #e6e6e6;
+  --ankidroid-audio-button-active-bg: #d9d9d9;
+  --ankidroid-audio-play-bg: #000000;
+  --ankidroid-audio-play-color: #ffffff;
+  --ankidroid-audio-play-hover-bg: #1a1a1a;
+  --ankidroid-audio-play-active-bg: #000000;
+  --ankidroid-audio-play-active-color: #ffffff;
+  --ankidroid-audio-play-active-hover-bg: #1a1a1a;
+  --ankidroid-audio-segment-border: #000000;
+  --ankidroid-audio-secondary-opacity: 1;
+  --ankidroid-audio-stop-bg: #000000;
+  --ankidroid-audio-stop-color: #ffffff;
+  --ankidroid-audio-stop-shadow: none;
+  --ankidroid-selection-nav-button-bg: #000000;
+  --ankidroid-selection-nav-button-color: #ffffff;
+  --ankidroid-selection-nav-button-border: 2px solid #000000;
+  --ankidroid-selection-nav-button-shadow: none;
+  --ankidroid-selection-nav-button-opacity: 1;
+}
+
+.ankidroid_high_contrast.nightMode,
+.ankidroid_high_contrast.night_mode {
+  --ankidroid-audio-player-bg-night: #000000;
+  --ankidroid-audio-player-shadow-night: none;
+  --ankidroid-audio-button-bg-night: #000000;
+  --ankidroid-audio-button-color-night: #ffffff;
+  --ankidroid-audio-button-hover-bg-night: #1a1a1a;
+  --ankidroid-audio-play-bg: #ffffff;
+  --ankidroid-audio-play-color: #000000;
+  --ankidroid-audio-play-hover-bg: #e6e6e6;
+  --ankidroid-audio-play-active-bg: #ffffff;
+  --ankidroid-audio-play-active-color: #000000;
+  --ankidroid-audio-play-active-hover-bg: #e6e6e6;
+  --ankidroid-audio-segment-border-night: #ffffff;
+  --ankidroid-audio-stop-bg-night: #ffffff;
+  --ankidroid-audio-stop-color-night: #000000;
+  --ankidroid-selection-nav-button-bg: #ffffff;
+  --ankidroid-selection-nav-button-color: #000000;
+  --ankidroid-selection-nav-button-border: 2px solid #ffffff;
+}
+
+.ankidroid_high_contrast .ankidroid-native-audio-player {
+  border: 2px solid #000000;
+}
+
+.ankidroid_high_contrast.nightMode .ankidroid-native-audio-player,
+.ankidroid_high_contrast.night_mode .ankidroid-native-audio-player {
+  border: 2px solid #ffffff;
+}
+
+.ankidroid_high_contrast .ankidroid-native-audio-stop-all {
+  border: 2px solid #000000;
+}
+
+.ankidroid_high_contrast.nightMode .ankidroid-native-audio-stop-all,
+.ankidroid_high_contrast.night_mode .ankidroid-native-audio-stop-all {
+  border: 2px solid #ffffff;
+}
+
 .ankidroid-linked-note-banner {
   display: flex;
   align-items: center;
@@ -302,10 +366,10 @@ scale up, but not down.  */
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid #666;
+  border: 1px solid var(--ankidroid-hidden-text-toggle-border, #666);
   border-radius: 4px;
-  background: #ccc;
-  color: #333;
+  background: var(--ankidroid-hidden-text-toggle-bg, #ccc);
+  color: var(--ankidroid-hidden-text-toggle-color, #333);
   font: inherit;
   font-size: 14px;
   line-height: 20px;
@@ -322,13 +386,13 @@ scale up, but not down.  */
 }
 
 .ankidroid-hidden-text-content.is-hidden {
-  background: #bfbfbf;
-  color: #bfbfbf !important;
+  background: var(--ankidroid-hidden-text-cover-bg, #bfbfbf);
+  color: var(--ankidroid-hidden-text-cover-color, #bfbfbf) !important;
 }
 
 .ankidroid-hidden-text-content.is-hidden * {
-  color: #bfbfbf !important;
-  -webkit-text-fill-color: #bfbfbf !important;
+  color: var(--ankidroid-hidden-text-cover-color, #bfbfbf) !important;
+  -webkit-text-fill-color: var(--ankidroid-hidden-text-cover-color, #bfbfbf) !important;
 }
 
 .ankidroid-hidden-text-content.is-hidden a,
@@ -336,8 +400,8 @@ scale up, but not down.  */
 .ankidroid-hidden-text-content.is-hidden a:visited,
 .ankidroid-hidden-text-content.is-hidden a:hover,
 .ankidroid-hidden-text-content.is-hidden a:active {
-  color: #bfbfbf !important;
-  -webkit-text-fill-color: #bfbfbf !important;
+  color: var(--ankidroid-hidden-text-cover-color, #bfbfbf) !important;
+  -webkit-text-fill-color: var(--ankidroid-hidden-text-cover-color, #bfbfbf) !important;
 }
 
 .ankidroid-hidden-text-content.is-hidden .ankidroid-native-audio-player,
@@ -358,8 +422,8 @@ scale up, but not down.  */
 
 .ankidroid-hidden-text-content.is-hidden.has-alt .ankidroid-hidden-text-alt {
   display: inline;
-  color: #444 !important;
-  -webkit-text-fill-color: #444 !important;
+  color: var(--ankidroid-hidden-text-alt-color, #444) !important;
+  -webkit-text-fill-color: var(--ankidroid-hidden-text-alt-color, #444) !important;
 }
 
 .ankidroid-hidden-text-content.is-revealed {
@@ -370,4 +434,23 @@ scale up, but not down.  */
 .ankidroid-hidden-text-content.is-revealed * {
   color: inherit !important;
   -webkit-text-fill-color: currentColor !important;
+}
+
+.ankidroid_high_contrast {
+  --ankidroid-hidden-text-toggle-border: #000000;
+  --ankidroid-hidden-text-toggle-bg: #ffffff;
+  --ankidroid-hidden-text-toggle-color: #000000;
+  --ankidroid-hidden-text-cover-bg: #000000;
+  --ankidroid-hidden-text-cover-color: #000000;
+  --ankidroid-hidden-text-alt-color: #ffffff;
+}
+
+.ankidroid_high_contrast.nightMode,
+.ankidroid_high_contrast.night_mode {
+  --ankidroid-hidden-text-toggle-border: #ffffff;
+  --ankidroid-hidden-text-toggle-bg: #000000;
+  --ankidroid-hidden-text-toggle-color: #ffffff;
+  --ankidroid-hidden-text-cover-bg: #ffffff;
+  --ankidroid-hidden-text-cover-color: #ffffff;
+  --ankidroid-hidden-text-alt-color: #000000;
 }
