@@ -33,6 +33,7 @@
         <item name="colorOutline">#000000</item>
         <item name="colorOutlineVariant">#000000</item>
         <item name="duplicateColor">#000000</item>
+        <item name="editTextHighlightColor">#8c8c8c</item>
         <!-- Primary -->
         <item name="colorPrimary">#000000</item>
         <item name="colorOnPrimary">#ffffff</item>
