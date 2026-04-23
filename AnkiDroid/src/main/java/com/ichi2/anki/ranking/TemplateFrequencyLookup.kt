@@ -12,9 +12,12 @@ private val FREQUENCY_CONFIG_SCRIPT_REGEX =
 
 data class TemplateFrequencyLookupRule(
     val field: String?,
+    val deck: String?,
     val sourceField: String,
     val targetField: String?,
     val format: String,
+    val rankType: String,
+    val removeNonAlphabeticChars: Boolean,
 )
 
 class TemplateFrequencyLookupConfigException(
@@ -40,7 +43,27 @@ fun parseTemplateFrequencyLookupRules(templateHtml: String): List<TemplateFreque
 fun selectTemplateFrequencyLookupRule(
     rules: List<TemplateFrequencyLookupRule>,
     currentFieldName: String,
-): TemplateFrequencyLookupRule? = rules.firstOrNull { it.field == currentFieldName } ?: rules.firstOrNull { it.field == null }
+    currentDeckName: String?,
+): TemplateFrequencyLookupRule? {
+    val exactFieldRules = rules.filter { it.field == currentFieldName }
+    selectTemplateFrequencyLookupRuleForDeck(exactFieldRules, currentDeckName)?.let { return it }
+
+    val genericFieldRules = rules.filter { it.field == null }
+    return selectTemplateFrequencyLookupRuleForDeck(genericFieldRules, currentDeckName)
+}
+
+fun hasTemplateFrequencyLookupRuleForField(
+    rules: List<TemplateFrequencyLookupRule>,
+    currentFieldName: String,
+): Boolean = rules.any { it.field == currentFieldName || it.field == null }
+
+private fun selectTemplateFrequencyLookupRuleForDeck(
+    rules: List<TemplateFrequencyLookupRule>,
+    currentDeckName: String?,
+): TemplateFrequencyLookupRule? =
+    rules.firstOrNull { rule ->
+        rule.deck == null || (currentDeckName != null && rule.deck == currentDeckName)
+    }
 
 private fun parseTemplateFrequencyLookupRulesFromJson(rawJson: String): List<TemplateFrequencyLookupRule> {
     val trimmed = rawJson.trim()
@@ -80,13 +103,25 @@ private fun parseTemplateFrequencyLookupRule(jsonObject: JSONObject): TemplateFr
     require(format == FREQUENCY_FORMAT_RANK_ONLY || format == FREQUENCY_FORMAT_RANK_AND_TERM) {
         "Unsupported ankidroid-frequency-config format '$format'."
     }
+    val rankType = jsonObject.optString("rankType", FREQUENCY_RANK_TYPE_AUTO).trim().ifBlank { FREQUENCY_RANK_TYPE_AUTO }
+    require(rankType == FREQUENCY_RANK_TYPE_AUTO || rankType == FREQUENCY_RANK_TYPE_CHAR || rankType == FREQUENCY_RANK_TYPE_GLOBAL) {
+        "Unsupported ankidroid-frequency-config rankType '$rankType'."
+    }
     return TemplateFrequencyLookupRule(
         field = jsonObject.optString("field").trim().ifBlank { null },
+        deck = jsonObject.optString("deck").trim().ifBlank { null },
         sourceField = sourceField,
         targetField = jsonObject.optString("targetField").trim().ifBlank { null },
         format = format,
+        rankType = rankType,
+        removeNonAlphabeticChars =
+            jsonObject.optBoolean("removeNonAlphabeticChars") ||
+                jsonObject.optBoolean("removeNonAlphabeticalChars"),
     )
 }
 
 const val FREQUENCY_FORMAT_RANK_ONLY = "rankOnly"
 const val FREQUENCY_FORMAT_RANK_AND_TERM = "rankAndTerm"
+const val FREQUENCY_RANK_TYPE_AUTO = "auto"
+const val FREQUENCY_RANK_TYPE_CHAR = "char"
+const val FREQUENCY_RANK_TYPE_GLOBAL = "global"

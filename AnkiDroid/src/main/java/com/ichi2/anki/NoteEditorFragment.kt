@@ -197,7 +197,9 @@ import com.ichi2.anki.props.selectTemplateSetSearchRule
 import com.ichi2.anki.ranking.FREQUENCY_FORMAT_RANK_AND_TERM
 import com.ichi2.anki.ranking.TemplateFrequencyLookupConfigException
 import com.ichi2.anki.ranking.WordRankingStore
+import com.ichi2.anki.ranking.hasTemplateFrequencyLookupRuleForField
 import com.ichi2.anki.ranking.parseTemplateFrequencyLookupRules
+import com.ichi2.anki.ranking.sanitizeRankingLookupTerm
 import com.ichi2.anki.ranking.selectTemplateFrequencyLookupRule
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
 import com.ichi2.anki.servicelayer.NoteService
@@ -3574,8 +3576,12 @@ class NoteEditorFragment :
                 return
             }
 
-        val rule = selectTemplateFrequencyLookupRule(rules, currentFieldName)
+        val currentDeckName = getColUnsafe.decks.getLegacy(deckId)?.name
+        val rule = selectTemplateFrequencyLookupRule(rules, currentFieldName, currentDeckName)
         if (rule == null) {
+            if (hasTemplateFrequencyLookupRuleForField(rules, currentFieldName)) {
+                return
+            }
             showSnackbar(getString(R.string.note_editor_frequency_lookup_no_matching_rule, currentFieldName))
             return
         }
@@ -3588,6 +3594,11 @@ class NoteEditorFragment :
         }
         val sourceValue = getCurrentFieldText(sourceFieldIndex).trim()
         if (sourceValue.isBlank()) {
+            showSnackbar(getString(R.string.note_editor_frequency_lookup_source_missing, rule.sourceField))
+            return
+        }
+        val lookupTerm = sanitizeRankingLookupTerm(sourceValue, rule.removeNonAlphabeticChars).trim()
+        if (lookupTerm.isBlank()) {
             showSnackbar(getString(R.string.note_editor_frequency_lookup_source_missing, rule.sourceField))
             return
         }
@@ -3609,18 +3620,19 @@ class NoteEditorFragment :
 
             val lookup =
                 withProgress(R.string.note_editor_frequency_lookup_in_progress) {
-                    rankingStore.lookup(sourceValue)
+                    rankingStore.lookup(lookupTerm)
                 }
-            if (lookup?.preferredRank == null) {
-                showSnackbar(getString(R.string.note_editor_frequency_lookup_not_found, sourceValue))
+            val rank = lookup?.rankFor(rule.rankType)
+            if (rank == null) {
+                showSnackbar(getString(R.string.note_editor_frequency_lookup_not_found, lookupTerm))
                 return@launchCatchingTask
             }
 
             val formattedValue =
                 if (rule.format == FREQUENCY_FORMAT_RANK_AND_TERM) {
-                    "${lookup.preferredRank.toString().padStart(5, '0')} ${lookup.term}"
+                    "${rank.toString().padStart(5, '0')} ${lookup.term}"
                 } else {
-                    lookup.preferredRank.toString().padStart(5, '0')
+                    rank.toString().padStart(5, '0')
                 }
             val targetField = editFields?.getOrNull(targetFieldIndex) ?: currentField
             targetField.setText(formattedValue)

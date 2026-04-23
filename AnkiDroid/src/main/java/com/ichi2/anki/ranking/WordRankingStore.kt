@@ -17,7 +17,14 @@ data class WordRankingLookup(
     val preferredRank: Long?,
     val charRank: Long?,
     val globalRank: Long?,
-)
+) {
+    fun rankFor(rankType: String): Long? =
+        when (rankType) {
+            FREQUENCY_RANK_TYPE_CHAR -> charRank
+            FREQUENCY_RANK_TYPE_GLOBAL -> globalRank
+            else -> preferredRank
+        }
+}
 
 data class WordRankingStatus(
     val ready: Boolean,

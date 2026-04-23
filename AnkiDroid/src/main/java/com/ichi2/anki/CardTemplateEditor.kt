@@ -1869,12 +1869,18 @@ open class CardTemplateEditor :
                   {
                     // Optional: when present, this rule is only used for this field name.
                     "field": "HSK Frequency",
+                    // Optional: exact deck name to match. If omitted, the rule matches any deck.
+                    "deck": "Mandarin",
                     // Field whose text is looked up in the bundled word-ranking store.
                     "sourceField": "Front",
                     // Optional: field that receives the formatted ranking result. Defaults to the current field.
                     "targetField": "HSK Frequency",
                     // format: "rankOnly" | "rankAndTerm"
-                    "format": "rankAndTerm"
+                    "format": "rankAndTerm",
+                    // rankType: "auto" | "char" | "global"
+                    "rankType": "auto",
+                    // Optional: remove punctuation, spaces, digits, etc. before lookup.
+                    "removeNonAlphabeticChars": false
                   }
                 ]
                 </script>
