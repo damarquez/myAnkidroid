@@ -1891,7 +1891,7 @@ open class CardTemplateEditor :
                 """
                 <script id="ankidroid-linked-note-config" type="application/json">
                 {
-                  // Field that stores the linked note reference as "{GUID} optional label text".
+                  // Field that stores the linked note reference as "{encoded GUID} optional label text".
                   "linkedNoteField": "Linked Note",
                   // Optional: deck to search in when choosing a linked note.
                   "deck": "MandarinMP::Main",

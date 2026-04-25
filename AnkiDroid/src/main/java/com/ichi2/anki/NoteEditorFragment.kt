@@ -144,6 +144,7 @@ import com.ichi2.anki.libanki.Notetypes
 import com.ichi2.anki.libanki.Utils
 import com.ichi2.anki.libanki.clozeNumbersInNote
 import com.ichi2.anki.libanki.extractLinkedNoteGuid
+import com.ichi2.anki.libanki.formatLinkedNoteStoredValue
 import com.ichi2.anki.libanki.parseTemplateLinkedNoteConfig
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.SelectableDeck
@@ -3889,20 +3890,6 @@ class NoteEditorFragment :
                 showSnackbar(getString(R.string.note_editor_linked_note_applied))
             }.show()
     }
-
-    private fun formatLinkedNoteStoredValue(
-        guid: String,
-        summary: String,
-    ): String =
-        buildString {
-            append('{')
-            append(guid)
-            append('}')
-            if (summary.isNotBlank()) {
-                append(' ')
-                append(summary)
-            }
-        }
 
     private fun insertPropInCurrentField() {
         val currentField = requireActivity().currentFocus as? FieldEditText

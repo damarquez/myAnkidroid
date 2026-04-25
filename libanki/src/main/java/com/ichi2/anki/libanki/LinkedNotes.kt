@@ -1,12 +1,15 @@
 package com.ichi2.anki.libanki
 
 import org.json.JSONObject
+import java.nio.charset.StandardCharsets
 
 private val LINKED_NOTE_CONFIG_SCRIPT_REGEX =
     Regex(
         """<script[^>]*id\s*=\s*["']ankidroid-linked-note-config["'][^>]*>(.*?)</script>""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
+private const val LINKED_NOTE_GUID_HEX_PREFIX = "guidhex:"
+private val HEX_DIGITS = "0123456789abcdef".toCharArray()
 
 enum class LinkedNoteDisplayMode {
     MERGED,
@@ -158,5 +161,53 @@ fun extractLinkedNoteGuid(rawValue: String): String {
     val trimmed = rawValue.trim()
     if (trimmed.isBlank()) return ""
     val match = LINKED_NOTE_GUID_STORAGE_REGEX.find(trimmed)
-    return match?.groupValues?.getOrNull(1)?.trim().orEmpty().ifBlank { trimmed }
+    val token =
+        match
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.trim()
+            .orEmpty()
+            .ifBlank { trimmed }
+    return decodeLinkedNoteGuidToken(token)
+}
+
+fun formatLinkedNoteStoredValue(
+    guid: String,
+    summary: String,
+): String =
+    buildString {
+        append('{')
+        append(encodeLinkedNoteGuidToken(guid))
+        append('}')
+        if (summary.isNotBlank()) {
+            append(' ')
+            append(summary)
+        }
+    }
+
+private fun encodeLinkedNoteGuidToken(guid: String): String =
+    LINKED_NOTE_GUID_HEX_PREFIX +
+        buildString {
+            for (byte in guid.toByteArray(StandardCharsets.UTF_8)) {
+                val value = byte.toInt() and 0xff
+                append(HEX_DIGITS[value ushr 4])
+                append(HEX_DIGITS[value and 0x0f])
+            }
+        }
+
+private fun decodeLinkedNoteGuidToken(token: String): String {
+    if (!token.startsWith(LINKED_NOTE_GUID_HEX_PREFIX)) {
+        return token
+    }
+
+    val encoded = token.removePrefix(LINKED_NOTE_GUID_HEX_PREFIX)
+    if (encoded.length % 2 != 0 || encoded.any { it.digitToIntOrNull(16) == null }) {
+        return token
+    }
+
+    val bytes =
+        ByteArray(encoded.length / 2) { index ->
+            encoded.substring(index * 2, index * 2 + 2).toInt(16).toByte()
+        }
+    return String(bytes, StandardCharsets.UTF_8)
 }
