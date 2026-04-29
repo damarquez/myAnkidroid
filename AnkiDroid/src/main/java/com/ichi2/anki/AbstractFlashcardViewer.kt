@@ -1275,7 +1275,7 @@ abstract class AbstractFlashcardViewer :
             automaticAnswer = AutomaticAnswer.createInstance(this, col)
             lifecycle.addObserver(automaticAnswer)
         } catch (ex: Exception) {
-            Timber.w(ex)
+            Timber.e(ex, "restoreCollectionPreferences failed — redirecting to DeckPicker")
             onCollectionLoadError()
         }
     }

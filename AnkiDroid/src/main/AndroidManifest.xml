@@ -301,7 +301,8 @@
             android:name="com.ichi2.anki.DeckPicker"
             android:theme="@style/Theme_Dark.Launcher"
             android:exported="false"
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:alwaysRetainTaskState="true"
+            android:configChanges="keyboardHidden|orientation|screenSize|uiMode"
             />
         <activity
             android:name="com.ichi2.anki.StudyOptionsActivity"
@@ -374,7 +375,7 @@
             android:name="com.ichi2.anki.Reviewer"
             android:exported="true"
             android:theme="@style/Theme_Dark.Launcher"
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:configChanges="keyboardHidden|orientation|screenSize|uiMode"
             android:windowSoftInputMode="adjustResize"
             android:parentActivityName=".DeckPicker">
             <intent-filter>
@@ -470,7 +471,7 @@
         <activity
             android:name="com.ichi2.anki.NoteEditorActivity"
             android:exported="false"
-            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:configChanges="keyboardHidden|orientation|screenSize|uiMode"
             android:windowSoftInputMode="adjustResize"
             />
         <activity

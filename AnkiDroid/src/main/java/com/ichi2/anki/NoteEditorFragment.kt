@@ -687,7 +687,7 @@ class NoteEditorFragment :
         try {
             setupEditor(getColUnsafe)
         } catch (ex: RuntimeException) {
-            Timber.w(ex, "setupEditor")
+            Timber.e(ex, "setupEditor failed — redirecting to DeckPicker")
             requireAnkiActivity().onCollectionLoadError()
             return
         }

@@ -403,7 +403,7 @@ open class AnkiActivity(
 
     /** The action to take when there was an error loading the collection  */
     fun onCollectionLoadError() {
-        Timber.w("onCollectionLoadError")
+        Timber.e("onCollectionLoadError: activity=%s, taskId=%d", this.javaClass.simpleName, taskId)
         val deckPicker = Intent(this, DeckPicker::class.java)
         deckPicker.putExtra("collectionLoadError", true) // don't currently do anything with this
         deckPicker.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
