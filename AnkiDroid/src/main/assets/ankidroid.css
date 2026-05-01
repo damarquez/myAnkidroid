@@ -220,6 +220,7 @@ img {
     flex: 0 0 auto;
     width: 22px;
     height: 22px;
+    margin: 0;
     padding: 0;
     border: 1px solid var(--ankidroid-hidden-text-toggle-border, #666);
     border-radius: 4px;
