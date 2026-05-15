@@ -65,6 +65,7 @@ import com.ichi2.anki.dialogs.tags.TagsDialogFactory
 import com.ichi2.anki.dialogs.tags.TagsDialogListener
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_SHARE
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.parseNavigationRequest
@@ -95,6 +96,7 @@ import com.ichi2.anki.utils.ext.showDialogFragment
 import com.ichi2.anki.utils.ext.window
 import com.ichi2.anki.workarounds.SafeWebViewLayout
 import com.ichi2.themes.Themes
+import com.ichi2.utils.IntentUtil
 import com.ichi2.utils.dp
 import com.ichi2.utils.show
 import com.squareup.seismic.ShakeDetector
@@ -758,6 +760,14 @@ class ReviewerFragment :
             showSnackbar(getString(R.string.search_card_js_api_no_results))
             return
         }
+
+        if (request.openMode == NAVIGATION_OPEN_MODE_SHARE) {
+            val share = request.share
+            val textToShare = "${share?.prefix ?: ""}${request.selectedText}${share?.suffix ?: ""}"
+            IntentUtil.shareText(requireContext(), textToShare)
+            return
+        }
+
         lifecycleScope.launch {
             val matches =
                 runCatching { findNavigationMatches(request) }

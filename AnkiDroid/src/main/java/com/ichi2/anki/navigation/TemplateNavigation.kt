@@ -12,6 +12,7 @@ import org.json.JSONObject
 
 const val NAVIGATION_OPEN_MODE_ANSWER = "answer"
 const val NAVIGATION_OPEN_MODE_QUESTION = "question"
+const val NAVIGATION_OPEN_MODE_SHARE = "share"
 
 data class NavigationSearchSpec(
     val deck: String,
@@ -22,11 +23,17 @@ data class NavigationSearchSpec(
     val suffix: String,
 )
 
+data class NavigationShareSpec(
+    val prefix: String,
+    val suffix: String,
+)
+
 data class NavigationRequest(
     val query: String,
     val openMode: String,
     val selectedText: String,
     val search: NavigationSearchSpec?,
+    val share: NavigationShareSpec?,
 )
 
 data class NavigationMatch(
@@ -39,11 +46,12 @@ data class NavigationMatch(
 fun parseNavigationRequest(payload: String): NavigationRequest {
     val trimmed = payload.trim()
     if (trimmed.isBlank()) {
-        return NavigationRequest("", NAVIGATION_OPEN_MODE_QUESTION, "", null)
+        return NavigationRequest("", NAVIGATION_OPEN_MODE_QUESTION, "", null, null)
     }
     return runCatching {
         val data = JSONObject(trimmed)
         val searchData = data.optJSONObject("search")
+        val shareData = data.optJSONObject("share")
         NavigationRequest(
             query = data.optString("query", "").trim(),
             openMode =
@@ -69,9 +77,16 @@ fun parseNavigationRequest(payload: String): NavigationRequest {
                         suffix = it.optString("suffix", ""),
                     )
                 },
+            share =
+                shareData?.let {
+                    NavigationShareSpec(
+                        prefix = it.optString("prefix", ""),
+                        suffix = it.optString("suffix", ""),
+                    )
+                },
         )
     }.getOrElse {
-        NavigationRequest(trimmed, NAVIGATION_OPEN_MODE_QUESTION, "", null)
+        NavigationRequest(trimmed, NAVIGATION_OPEN_MODE_QUESTION, "", null, null)
     }
 }
 

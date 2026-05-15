@@ -57,6 +57,20 @@ object IntentUtil {
         }
     }
 
+    fun shareText(
+        context: Context,
+        text: String,
+        title: String? = null,
+    ) {
+        val intent =
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+        val chooser = Intent.createChooser(intent, title)
+        context.startActivity(chooser)
+    }
+
     fun Intent.resolveMimeType(): String? =
         if (type == null) {
             val extension = MimeTypeMap.getFileExtensionFromUrl(data.toString())

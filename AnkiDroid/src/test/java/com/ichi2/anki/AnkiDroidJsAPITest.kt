@@ -348,6 +348,35 @@ class AnkiDroidJsAPITest : RobolectricTest() {
             assertThat(sched.cardCount(), equalTo(1))
         }
 
+    @Test
+    fun ankiNavigateCardShareTest() =
+        runTest {
+            addBasicNote("foo", "bar")
+            val reviewer: Reviewer = startReviewer()
+            val jsapi = reviewer.jsApi
+
+            val payload =
+                JSONObject()
+                    .apply {
+                        put("selectedText", "share this")
+                        put("openMode", "share")
+                        put(
+                            "share",
+                            JSONObject().apply {
+                                put("prefix", "Pre: ")
+                                put("suffix", " :Post")
+                            },
+                        )
+                    }.toString()
+
+            // We can't easily verify the Intent is sent in this test without more complex mocking,
+            // but we can verify it returns success (true).
+            assertThat(
+                getDataFromRequest("navigateCard", jsapi, payload),
+                equalTo(formatApiResult(true)),
+            )
+        }
+
     private fun startReviewer(): Reviewer = ReviewerTest.startReviewer(this)
 
     @Test

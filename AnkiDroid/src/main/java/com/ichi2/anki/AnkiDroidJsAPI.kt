@@ -49,6 +49,7 @@ import com.ichi2.anki.servicelayer.rescheduleCards
 import com.ichi2.anki.servicelayer.resetCards
 import com.ichi2.anki.snackbar.setMaxLines
 import com.ichi2.anki.snackbar.showSnackbar
+import com.ichi2.utils.IntentUtil
 import com.ichi2.utils.NetworkUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -512,6 +513,13 @@ open class AnkiDroidJsAPI(
                 return@withContext convertToByteArray(apiContract, false)
             }
 
+            if (request.openMode == OPEN_MODE_SHARE) {
+                val share = request.share
+                val textToShare = "${share?.prefix ?: ""}${request.selectedText}${share?.suffix ?: ""}"
+                IntentUtil.shareText(context, textToShare)
+                return@withContext convertToByteArray(apiContract, true)
+            }
+
             val matches =
                 try {
                     findNavigationMatches(request)
@@ -647,11 +655,12 @@ open class AnkiDroidJsAPI(
     private fun parseNavigationRequest(payload: String): NavigationRequest {
         val trimmed = payload.trim()
         if (trimmed.isBlank()) {
-            return NavigationRequest("", OPEN_MODE_QUESTION, "", null)
+            return NavigationRequest("", OPEN_MODE_QUESTION, "", null, null)
         }
         return runCatching {
             val data = JSONObject(trimmed)
             val searchData = data.optJSONObject("search")
+            val shareData = data.optJSONObject("share")
             NavigationRequest(
                 query = data.optString("query", "").trim(),
                 openMode =
@@ -677,9 +686,16 @@ open class AnkiDroidJsAPI(
                             suffix = it.optString("suffix", ""),
                         )
                     },
+                share =
+                    shareData?.let {
+                        NavigationShareSpec(
+                            prefix = it.optString("prefix", ""),
+                            suffix = it.optString("suffix", ""),
+                        )
+                    },
             )
         }.getOrElse {
-            NavigationRequest(trimmed, OPEN_MODE_QUESTION, "", null)
+            NavigationRequest(trimmed, OPEN_MODE_QUESTION, "", null, null)
         }
     }
 
@@ -695,6 +711,12 @@ open class AnkiDroidJsAPI(
         val openMode: String,
         val selectedText: String,
         val search: NavigationSearchSpec?,
+        val share: NavigationShareSpec?,
+    )
+
+    private data class NavigationShareSpec(
+        val prefix: String,
+        val suffix: String,
     )
 
     private data class NavigationSearchSpec(
@@ -791,6 +813,7 @@ open class AnkiDroidJsAPI(
     companion object {
         private const val OPEN_MODE_ANSWER = "answer"
         private const val OPEN_MODE_QUESTION = "question"
+        private const val OPEN_MODE_SHARE = "share"
 
         /**
          * Key for a success value.

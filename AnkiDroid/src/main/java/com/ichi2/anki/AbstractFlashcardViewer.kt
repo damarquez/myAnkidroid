@@ -136,6 +136,7 @@ import com.ichi2.anki.multimedia.getAvTag
 import com.ichi2.anki.multimedia.parseAudioAutoPlayConfigFromHtml
 import com.ichi2.anki.multimedia.parseAudioPlayerOptions
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_SHARE
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.buildKnownDecksInjectionJs
 import com.ichi2.anki.navigation.findNavigationMatches
@@ -178,6 +179,7 @@ import com.ichi2.themes.Themes.getResFromAttr
 import com.ichi2.ui.FixedEditText
 import com.ichi2.utils.HandlerUtils.newHandler
 import com.ichi2.utils.HashUtil.hashSetInit
+import com.ichi2.utils.IntentUtil
 import com.ichi2.utils.Stopwatch
 import com.ichi2.utils.message
 import com.ichi2.utils.negativeButton
@@ -2779,6 +2781,14 @@ abstract class AbstractFlashcardViewer :
             showSnackbar(getString(R.string.search_card_js_api_no_results))
             return
         }
+
+        if (request.openMode == NAVIGATION_OPEN_MODE_SHARE) {
+            val share = request.share
+            val textToShare = "${share?.prefix ?: ""}${request.selectedText}${share?.suffix ?: ""}"
+            IntentUtil.shareText(this, textToShare)
+            return
+        }
+
         launchCatchingTask {
             val matches =
                 runCatching { findNavigationMatches(request) }

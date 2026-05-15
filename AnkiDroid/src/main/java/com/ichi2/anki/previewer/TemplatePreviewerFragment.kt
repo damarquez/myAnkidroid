@@ -28,6 +28,7 @@ import com.ichi2.anki.R
 import com.ichi2.anki.browser.IdsFile
 import com.ichi2.anki.databinding.FragmentTemplatePreviewerBinding
 import com.ichi2.anki.libanki.CardOrdinal
+import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_SHARE
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.parseNavigationRequest
@@ -37,6 +38,7 @@ import com.ichi2.anki.snackbar.BaseSnackbarBuilderProvider
 import com.ichi2.anki.snackbar.SnackbarBuilder
 import com.ichi2.anki.snackbar.showSnackbar
 import com.ichi2.anki.workarounds.SafeWebViewLayout
+import com.ichi2.utils.IntentUtil
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -112,6 +114,13 @@ class TemplatePreviewerFragment :
             val request = parseNavigationRequest(payload)
             if (request.query.isBlank() && request.selectedText.isBlank()) {
                 showSnackbar(getString(R.string.search_card_js_api_no_results))
+                return@launch
+            }
+
+            if (request.openMode == NAVIGATION_OPEN_MODE_SHARE) {
+                val share = request.share
+                val textToShare = "${share?.prefix ?: ""}${request.selectedText}${share?.suffix ?: ""}"
+                IntentUtil.shareText(requireContext(), textToShare)
                 return@launch
             }
 

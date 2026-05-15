@@ -143,7 +143,7 @@
 
     function deckExists(entry) {
         const navMode = String((entry && entry.navMode) || "deck").toLowerCase();
-        if (navMode === "app") return true;
+        if (navMode === "app" || navMode === "share") return true;
         const known = window.__ankidroidKnownDecks;
         // If we haven't received the list yet, don't filter — avoids hiding buttons
         // during the brief window between page load and native injection.
@@ -312,6 +312,10 @@
 
         function addButtonsForConfigs(sectionName, entries) {
             entries.forEach(function (entry) {
+                const len = clean.length;
+                if (typeof entry.minLength === "number" && len < entry.minLength) return;
+                if (typeof entry.maxLength === "number" && len > entry.maxLength) return;
+
                 const navMode = String((entry && entry.navMode) || "deck").toLowerCase();
                 const label = String((entry && entry.label) || getDefaultButtonLabel(sectionName));
                 if (navMode === "app") {
@@ -319,6 +323,20 @@
                     if (!url) return;
                     makeBtn(label, function () {
                         openAppAction(url);
+                    });
+                    return;
+                }
+                if (navMode === "share") {
+                    const payload = JSON.stringify({
+                        selectedText: clean,
+                        openMode: "share",
+                        share: {
+                            prefix: String(entry.prefix || ""),
+                            suffix: String(entry.suffix || ""),
+                        },
+                    });
+                    makeBtn(label, function () {
+                        openPreviewSearch(payload);
                     });
                     return;
                 }
