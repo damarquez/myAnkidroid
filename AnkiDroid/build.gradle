@@ -9,6 +9,8 @@ plugins {
     id 'idea'
 }
 
+import java.util.Properties
+
 repositories {
     google()
     mavenCentral()
@@ -291,6 +293,45 @@ android {
     packagingOptions {
         resources {
             excludes += ['META-INF/DEPENDENCIES']
+        }
+    }
+
+    def localProps = new Properties()
+    def localPropsFile = project.rootProject.file("local.properties")
+    if (localPropsFile.exists()) {
+        localPropsFile.withInputStream { localProps.load(it) }
+    }
+    def apkOutputName = (project.findProperty("apk.outputName") ?: "app.apk")
+    def apkOutputDir = localProps.getProperty("apk.outputDir")
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def abi = output.getFilter("ABI")
+            if (abi != null) {
+                output.outputFileName = apkOutputName.replace(".apk", "-${abi}.apk")
+            } else {
+                output.outputFileName = apkOutputName
+            }
+        }
+        if (apkOutputDir != null) {
+            def variantName = variant.name.capitalize()
+            def copyTaskName = "copyApk${variantName}"
+            def outputDir = apkOutputDir
+            
+            tasks.register(copyTaskName, Copy) {
+                description = "Copies APKs for ${variant.name} to ${outputDir}"
+                group = "publishing"
+                
+                // Use a provider to defer evaluation of the APK files until execution
+                from(variant.outputs.collect { it.outputFile })
+                into(outputDir)
+                
+                dependsOn variant.assembleProvider
+            }
+            
+            variant.assembleProvider.configure {
+                finalizedBy(copyTaskName)
+            }
         }
     }
 }
