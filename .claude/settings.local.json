@@ -8,7 +8,18 @@
             "Bash(export JAVA_HOME=\"/c/Program Files/Android/Android Studio1/jbr\")",
             "Bash(./gradlew :AnkiDroid:assemblePlayDebug)",
             "Bash(adb devices *)",
-            "Bash(adb shell *)"
+            "Bash(adb shell *)",
+            "Bash(C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe devices *)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" devices)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s \"adb-B7CPR0L2GB4B007000326-vRczbn._adb-tls-connect._tcp\" shell getprop ro.product.model)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s \"adb-RX2NA00C9YP-uBl9w2._adb-tls-connect._tcp\" shell getprop ro.product.model)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s $bigme shell getprop ro.product.manufacturer)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s $bigme shell getprop ro.build.version.release)",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s $bigme shell getprop ro.build.version.sdk)",
+            "PowerShell($bigme = \"adb-B7CPR0L2GB4B007000326-vRczbn._adb-tls-connect._tcp\")",
+            "PowerShell(& \"C:\\\\Users\\\\damar\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" -s $bigme logcat -c)",
+            "Bash(grep -E \"\\\\.\\(kt|java|tsx|ts|jsx|js\\)$\")",
+            "Bash(xargs grep -l \"prop.*search\\\\|note.*link\\\\|linked.*note\")"
         ]
     }
 }

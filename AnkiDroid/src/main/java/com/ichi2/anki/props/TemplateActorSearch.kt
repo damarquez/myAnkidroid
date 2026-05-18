@@ -20,6 +20,7 @@ data class TemplateActorSearchRule(
     val applyMode: String,
     val tokenPattern: String,
     val maxResults: Int,
+    val insertAsLink: Boolean,
 )
 
 class TemplateActorSearchConfigException(
@@ -97,6 +98,7 @@ private fun parseTemplateActorSearchRule(jsonObject: JSONObject): TemplateActorS
         applyMode = jsonObject.optString("applyMode", SEARCH_APPLY_MODE_APPEND).trim().ifBlank { SEARCH_APPLY_MODE_APPEND },
         tokenPattern = jsonObject.optString("tokenPattern", DEFAULT_ACTOR_TOKEN_PATTERN).trim().ifBlank { DEFAULT_ACTOR_TOKEN_PATTERN },
         maxResults = jsonObject.optInt("maxResults", DEFAULT_ACTOR_MAX_RESULTS).coerceAtLeast(2),
+        insertAsLink = jsonObject.optBoolean("insertAsLink", false),
     )
 }
 

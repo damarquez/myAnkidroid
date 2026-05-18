@@ -4366,6 +4366,7 @@ class NoteEditorFragment :
             insertValue = insertValue,
             displaySymbol = stripHtml(insertValue).trim(),
             label = label,
+            guid = if (rule.insertAsLink) note.guId else null,
         )
     }
 
@@ -4397,6 +4398,7 @@ class NoteEditorFragment :
             insertValue = searchValue,
             displaySymbol = searchValue,
             label = label,
+            guid = if (rule.insertAsLink) note.guId else null,
         )
     }
 
@@ -4416,6 +4418,7 @@ class NoteEditorFragment :
             insertValue = searchValue,
             displaySymbol = searchValue,
             label = label,
+            guid = if (rule.insertAsLink) note.guId else null,
         )
     }
 
@@ -4594,11 +4597,23 @@ class NoteEditorFragment :
     ) {
         val editable = field.text ?: return
         val normalizedMode = applyMode.lowercase(Locale.ROOT)
+        val linkedInsertValue =
+            if (suggestion.guid != null) {
+                formatNoteLinkMarkup(suggestion.guid, suggestion.insertValue)
+            } else {
+                suggestion.insertValue
+            }
+        val linkedQuery =
+            if (suggestion.guid != null) {
+                formatNoteLinkMarkup(suggestion.guid, activeSearch.query)
+            } else {
+                activeSearch.query
+            }
         val replacement =
             when (normalizedMode) {
-                SEARCH_APPLY_MODE_APPEND -> "${activeSearch.query} (${suggestion.label})"
-                SEARCH_APPLY_MODE_WHOLE_ENTRY.lowercase(Locale.ROOT) -> "${suggestion.insertValue} (${suggestion.label})"
-                else -> suggestion.insertValue
+                SEARCH_APPLY_MODE_APPEND -> "$linkedQuery (${suggestion.label})"
+                SEARCH_APPLY_MODE_WHOLE_ENTRY.lowercase(Locale.ROOT) -> "$linkedInsertValue (${suggestion.label})"
+                else -> linkedInsertValue
             }
         val replaceEnd =
             if (normalizedMode == SEARCH_APPLY_MODE_APPEND || normalizedMode == SEARCH_APPLY_MODE_WHOLE_ENTRY.lowercase(Locale.ROOT)) {
@@ -4801,6 +4816,7 @@ class NoteEditorFragment :
         val insertValue: String,
         val displaySymbol: String,
         val label: String,
+        val guid: String? = null,
     )
 
     private data class PropSearchLookupResult(

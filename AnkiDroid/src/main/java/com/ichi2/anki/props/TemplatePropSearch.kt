@@ -20,6 +20,7 @@ data class TemplatePropSearchRule(
     val applyMode: String,
     val tokenPattern: String,
     val maxResults: Int,
+    val insertAsLink: Boolean,
 )
 
 data class ClozeToken(
@@ -147,6 +148,7 @@ private fun parseTemplatePropSearchRule(jsonObject: JSONObject): TemplatePropSea
         applyMode = jsonObject.optString("applyMode", SEARCH_APPLY_MODE_REPLACE).trim().ifBlank { SEARCH_APPLY_MODE_REPLACE },
         tokenPattern = jsonObject.optString("tokenPattern", DEFAULT_TOKEN_PATTERN).trim().ifBlank { DEFAULT_TOKEN_PATTERN },
         maxResults = jsonObject.optInt("maxResults", DEFAULT_MAX_RESULTS).coerceAtLeast(2),
+        insertAsLink = jsonObject.optBoolean("insertAsLink", false),
     )
 }
 
