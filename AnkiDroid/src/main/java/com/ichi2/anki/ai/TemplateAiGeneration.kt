@@ -214,6 +214,11 @@ class NoteEditorAiTextGenerator(
                             .put("role", "user")
                             .put("content", promptText),
                     ),
+                ).put(
+                    "reasoning",
+                    JSONObject()
+                        .put("enabled", false)
+                        .put("exclude", true),
                 )
 
         val request =
