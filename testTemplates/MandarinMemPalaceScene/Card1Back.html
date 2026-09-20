@@ -104,7 +104,7 @@
 
 <script id="ankidroid-linked-note-config" type="application/json">
 {
-  // Field that stores the encoded GUID of another note to visually inherit blank fields from.
+  // Field that stores the GUID of another note to visually inherit blank fields from.
   "linkedNoteField": "Linked Note",
   "deck": "MandarinMP::Characters",
   "labelFields": ["Front", "Back"],
@@ -171,7 +171,7 @@
   // app actions ignore deck/field/fallbackField/matchMode/prefix/suffix and use urlTemplate instead.
 {
   "character": [
-   { 
+   {
       "label": "Prop",
       "originField": "Reason",
       "navMode": "deck",
@@ -213,6 +213,17 @@
     }
   ],
   "word": [
+   {
+      "label": "Set",
+      "originField": "Reason",
+      "navMode": "deck",
+      "deck": "MandarinMP::Meta-Sets",
+      "field": "Text",
+      "matchMode": "partial",
+      "openMode": "answer",
+      "prefix": "",
+      "suffix": ""
+    },
     {
       "label": "Search",
       "navMode": "deck",
@@ -227,6 +238,13 @@
       "label": "Hanping",
       "navMode": "app",
       "urlTemplate": "https://hanpingchinese.com/cmn/word?t=[[url:selectedText]]"
+    },
+    {
+      "label": "Explain",
+      "navMode": "share",
+      "prefix": "Break down the following Mandarin phrase: ",
+      "suffix": "(Explain it in English)",
+      "minLength": 3
     }
   ]
 }
@@ -290,7 +308,8 @@
     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
     "maxResults": 8,
     "matchMode": "partial",
-     "applyMode":"wholeEntry"
+     "applyMode": "wholeEntry",
+     "insertAsLink": true
   }
 ]
 </script>
@@ -312,7 +331,8 @@
     // Regex used to detect the active token around the cursor when nothing is selected.
     "tokenPattern": "[A-Za-z]+-?",
     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
-    "maxResults": 8
+    "maxResults": 8,
+     "insertAsLink": true
   }
 ]
 </script>
@@ -336,7 +356,8 @@
     // Regex used to detect the active token around the cursor when nothing is selected.
     "tokenPattern": "-?[\\p{L}\\p{M}]+",
     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
-    "maxResults": 8
+    "maxResults": 8,
+     "insertAsLink": true
   }
 ]
 </script>
@@ -349,9 +370,9 @@
     // Optional: when present, this prompt is only used for this field name.
     "field": "Examples",
     // Required: the main instruction sent to the AI service.
-    "prompt": " is a Mandarin word. Provide 5 simple, beginner level examples (5-20 chars) of that exact word. Return ONLY raw text. No markdown fences (```), no bold, no intro/outro.\\n\\nRequired Template (remove [], but leave quotes or ()): \\n\\n1.[Mandarin](*1)\\n([Pinyin])(*2)\\n\"[English]\"(*2)\\n\\n(Blank line)\\n\\n2.[Mandarin](*1)\\n...\\nExample:\\n1. 这是我的书。 (*1)\\n   (Zhè shì wǒ de shū.) (*2)\\n   \"This is my book.\" (*3)\\n\\n2. 红色的花好看。(*1)\\n   (Hóngsè de huā hǎokàn.) (*2)\\n   \"The red flowers are pretty.\" (*3)\\n\\nStrict Rules:\\n\\n- You must use sequential numbers (1-5).\\n- You must add (*1) at the end of the Mandarin line, (*2) at end of Pinyin line, (*3) for example line.\\n- You must put a line break after Mandarin and Pinyin.\\n- You must leave exactly one blank line between examples.\\n- Only add a brief note at the very end if absolutely necessary.",
+    "prompt": ". Provide 5 simple, beginner level examples (5-20 chars) of that exact word. The complete text of you result will be automatically pasted into a field that expects only the 5 results, nothing else, and will BREAK if you include your reasoning in the response, so don't do it: only answer with the 5 examples. Return ONLY raw text. No markdown fences (```), no bold, no intro/outro.\\n\\nRequired Template (remove [], but leave quotes or ()): \\n\\n1.[Mandarin](*1)\\n([Pinyin])(*2)\\n\"[English]\"(*2)\\n\\n(Blank line)\\n\\n2.[Mandarin](*1)\\n...\\nExample:\\n1. 这是我的书。 (*1)\\n   (Zhè shì wǒ de shū.) (*2)\\n   \"This is my book.\" (*3)\\n\\n2. 红色的花好看。(*1)\\n   (Hóngsè de huā hǎokàn.) (*2)\\n   \"The red flowers are pretty.\" (*3)\\n\\nStrict Rules:\\n\\n- You must use sequential numbers (1-5).\\n- You must add (*1) at the end of the Mandarin line, (*2) at end of Pinyin line, (*3) for example line.\\n- You must put a line break after Mandarin and Pinyin.\\n- You must leave exactly one blank line between examples.\\n- Only add a brief note at the very end if absolutely necessary. NEVER give me anything other than the final result. I do not want thought processes, any comments or anything else other than the 5 examples.",
     // Optional: fixed text placed before the prompt.
-    "prefixText": " ",
+    "prefixText": "Consider this Mandarin character or word: ",
     // Optional: field value placed before the prompt.
     "prefixField": "Front",
     // Optional: fixed text placed after the prompt.
@@ -363,9 +384,11 @@
 </script>
 
 
+
 <script id="ankidroid-frequency-config" type="application/json">
 [
   {
+    "deck": "MandarinMP::Vocabulary",
     // Optional: when present, this rule is only used for this field name.
     "field": "HSK Frequency",
     // Field whose text is looked up in the bundled word-ranking store.
@@ -373,7 +396,30 @@
     // Optional: field that receives the formatted ranking result. Defaults to the current field.
     "targetField": "HSK Frequency",
     // format: "rankOnly" | "rankAndTerm"
-    "format": "rankAndTerm"
+    "format": "rankAndTerm",
+    "rankType": "global",
+    "removeNonAlphabeticChars": "True"
+  },
+  {
+    "deck": "MandarinMP::Characters",
+    // Optional: when present, this rule is only used for this field name.
+    "field": "HSK Frequency",
+    // Field whose text is looked up in the bundled word-ranking store.
+    "sourceField": "Front",
+    // Optional: field that receives the formatted ranking result. Defaults to the current field.
+    "targetField": "HSK Frequency",
+    // format: "rankOnly" | "rankAndTerm"
+    "format": "rankAndTerm",
+    "rankType": "char",
+    "removeNonAlphabeticChars": "True"
   }
 ]
 </script>
+
+
+
+
+
+
+
+

@@ -392,6 +392,9 @@ a[href^="ankidroid-note://"]:visited {
     margin: 2px 0;
 }
 
+.ankidroid-hidden-text-wrapper {
+      align-items: flex-start !important;
+}
 .hidden-line-toggle {
     flex: 0 0 auto;
     width: 22px;
