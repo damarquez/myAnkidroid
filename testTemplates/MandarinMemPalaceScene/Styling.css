@@ -137,16 +137,17 @@ a[href^="ankidroid-note://"]:visited {
 
 
 /* Apply CJK font to all field content blocks that render Chinese */
-#target-Pinyin,
-#target-Scene,
-#target-Reason,
-#target-Examples {
+.traditional-field .field-rich-content,
+.pinyin-field .field-rich-content,
+.scene-field .field-rich-content,
+.reason-field .field-rich-content,
+.examples-field .field-rich-content {
   font-family: "CJK", "CJK-ExtB", "SimSun-ExtB", system-ui, sans-serif;
   unicode-bidi: plaintext; /* keeps embedded audio placeholders benign */
 }
 
 /* Increase font size specifically for the Examples field */
-#target-Examples {
+.examples-field .field-rich-content {
   font-size: 28px; /* You can increase or decrease this number to fit your preference */
   line-height: 1.5; /* Adds a bit of breathing room between multiple lines */
 }

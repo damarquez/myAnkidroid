@@ -1,7 +1,6 @@
 package com.ichi2.anki.notelinks
 
 import android.net.Uri
-import android.text.TextUtils
 import com.ichi2.anki.CollectionManager.withCol
 
 private val NOTE_LINK_REGEX = Regex("""\[link:(?:"([^"\r\n]+)"|([^|\]\r\n]+))\|([^\]]+)]""")
@@ -13,7 +12,7 @@ fun expandNoteLinksToHtml(content: String): String =
         if (guid.isBlank() || label.isBlank()) {
             match.value
         } else {
-            """<a href="ankidroid-note://open?guid=${Uri.encode(guid)}">${TextUtils.htmlEncode(label)}</a>"""
+            """<a href="ankidroid-note://open?guid=${Uri.encode(guid)}">$label</a>"""
         }
     }
 

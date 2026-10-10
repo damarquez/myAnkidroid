@@ -304,7 +304,7 @@
     // Cloze number searched and shown as the label in the picker.
     "searchCloze": 2,
     // Regex used to detect the active token around the cursor when nothing is selected.
-    "tokenPattern": "[A-Za-z]+",
+    "tokenPattern": "[A-Za-z0-9]+",
     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
     "maxResults": 8,
     "matchMode": "partial",
@@ -329,7 +329,7 @@
     // Cloze number appended in parentheses after the token.
     "labelCloze": 2,
     // Regex used to detect the active token around the cursor when nothing is selected.
-    "tokenPattern": "[A-Za-z]+-?",
+    "tokenPattern": "[\\p{L}\\p{M}]+-?",
     // Maximum number of rows shown in the picker. If there are more, the last row becomes "...".
     "maxResults": 8,
      "insertAsLink": true
