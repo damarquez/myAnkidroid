@@ -6,6 +6,35 @@
 
 <br>
 
+<!--
+    Answer-length hint: single character / single-character word ("X.") / N-character word.
+    Front is wrapped in {{#Back}} so this card is still generated only when Back is filled.
+-->
+{{#Back}}<span id="character-type-source" style="display:none;">{{text:Front}}</span>{{/Back}}
+<script>
+    (function () {
+      var box = document.getElementById('character-type-back');
+      var source = document.getElementById('character-type-source');
+      if (!box || !source) return;
+
+      // Ignore notes after the entry, e.g. "個. [see: 个.]"
+      var entry = source.textContent.trim().split(/[\s\[]/)[0];
+      var chars = Array.from(entry.replace(/\.$/, ''));
+      var isWord = /\.$/.test(entry) || chars.length > 1;
+
+      box.className = 'char-length-message';
+      if (chars.length === 0) {
+        box.textContent = '';
+      } else if (!isWord) {
+        box.textContent = '(single character)';
+      } else if (chars.length === 1) {
+        box.textContent = '(single-character word)';
+      } else {
+        box.textContent = '(' + chars.length + '-character word)';
+      }
+    })();
+</script>
+
 
 
 
