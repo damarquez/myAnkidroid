@@ -141,6 +141,7 @@ import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.buildKnownDecksInjectionJs
 import com.ichi2.anki.navigation.findNavigationMatches
 import com.ichi2.anki.navigation.loadKnownDeckNames
+import com.ichi2.anki.navigation.offerToCreateNavigationNote
 import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
 import com.ichi2.anki.notelinks.extractGuidFromNoteLinkUrl
@@ -2798,7 +2799,10 @@ abstract class AbstractFlashcardViewer :
                     }
             val showAnswer = request.openMode == NAVIGATION_OPEN_MODE_ANSWER
             when {
-                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.isEmpty() ->
+                    offerToCreateNavigationNote(this@AbstractFlashcardViewer, request) {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                    }
                 matches.size == 1 -> openLinkedPreviewActivity(matches.single().cardId, showAnswer)
                 else -> showLinkedPreviewChooser(matches, showAnswer)
             }

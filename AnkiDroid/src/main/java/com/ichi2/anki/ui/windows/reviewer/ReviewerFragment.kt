@@ -68,6 +68,7 @@ import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_SHARE
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.offerToCreateNavigationNote
 import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.pages.DeckOptionsDestination
 import com.ichi2.anki.preferences.reviewer.ViewerAction
@@ -777,7 +778,10 @@ class ReviewerFragment :
                     }
             val showAnswer = request.openMode == NAVIGATION_OPEN_MODE_ANSWER
             when {
-                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.isEmpty() ->
+                    offerToCreateNavigationNote(requireContext(), request) {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                    }
                 matches.size == 1 -> startPreviewerFor(matches.single().cardId, showAnswer)
                 else -> showLinkedPreviewPicker(matches, showAnswer)
             }

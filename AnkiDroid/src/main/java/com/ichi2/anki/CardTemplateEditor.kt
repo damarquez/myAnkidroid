@@ -1623,6 +1623,9 @@ open class CardTemplateEditor :
                   // If no originField-specific entries match, the generic entries are shown as fallback.
                   // fallbackField is optional and is searched only if the main field returns no result.
                   // app actions ignore deck/field/fallbackField/matchMode/prefix/suffix and use urlTemplate instead.
+                  // When a deck search finds nothing, you are offered to add the note: the Add screen opens in "deck",
+                  // with "field" prefilled (prefix + selection + suffix). Nothing is stored unless you save it.
+                  // noteType is optional (default: the note type most used in "deck"); "offerCreate": false disables it.
                   "character": [
                     {
                       "label": "Char Pinyin",
@@ -1658,6 +1661,7 @@ open class CardTemplateEditor :
                     "label": "Word",
                     "navMode": "deck",
                     "deck": "TargetDeck::Vocabulary",
+                    "noteType": "Basic",
                     "field": "Front",
                     "fallbackField": "Back",
                     "matchMode": "exact",

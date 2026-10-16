@@ -210,6 +210,8 @@
                 matchMode: String((config && config.matchMode) || "exact").toLowerCase(),
                 prefix: String((config && config.prefix) || ""),
                 suffix: String((config && config.suffix) || ""),
+                noteType: String((config && config.noteType) || ""),
+                offerCreate: !(config && config.offerCreate === false),
             },
         });
     }

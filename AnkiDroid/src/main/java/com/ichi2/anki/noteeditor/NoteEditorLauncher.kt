@@ -30,6 +30,7 @@ import com.ichi2.anki.NoteEditorFragment.Companion.NoteEditorCaller
 import com.ichi2.anki.browser.CardBrowserViewModel
 import com.ichi2.anki.libanki.CardId
 import com.ichi2.anki.libanki.DeckId
+import com.ichi2.anki.libanki.NoteTypeId
 import com.ichi2.anki.utils.Destination
 
 /**
@@ -193,6 +194,27 @@ sealed interface NoteEditorLauncher : Destination {
             bundleOf(
                 NoteEditorFragment.EXTRA_CALLER to NoteEditorCaller.PREVIEWER_EDIT.value,
                 NoteEditorFragment.EXTRA_EDIT_FROM_CARD_ID to cardId,
+            )
+    }
+
+    /**
+     * Adds a note that a template navigation search ("deck" mode) didn't find.
+     * The editor opens prefilled and only stores the note if the user saves it.
+     * @property fieldName field set to [fieldValue]; ignored if the note type has no such field
+     */
+    data class AddNoteFromNavigation(
+        val deckId: DeckId,
+        val noteTypeId: NoteTypeId,
+        val fieldName: String,
+        val fieldValue: String,
+    ) : NoteEditorLauncher {
+        override fun toBundle(): Bundle =
+            bundleOf(
+                NoteEditorFragment.EXTRA_CALLER to NoteEditorCaller.NAVIGATION_ADD.value,
+                NoteEditorFragment.EXTRA_DID to deckId,
+                NoteEditorFragment.EXTRA_NOTETYPE_ID to noteTypeId,
+                NoteEditorFragment.EXTRA_PREFILL_FIELD to fieldName,
+                NoteEditorFragment.EXTRA_PREFILL_VALUE to fieldValue,
             )
     }
 

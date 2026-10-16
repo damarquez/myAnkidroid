@@ -877,6 +877,7 @@ class NoteEditorFragment :
             NoteEditorCaller.REVIEWER_ADD,
             NoteEditorCaller.CARDBROWSER_ADD,
             NoteEditorCaller.NOTEEDITOR,
+            NoteEditorCaller.NAVIGATION_ADD,
             -> {
                 addNote = true
             }
@@ -986,6 +987,12 @@ class NoteEditorFragment :
             }
         }
         val getTextFromSearchView = requireArguments().getString(EXTRA_TEXT_FROM_SEARCH_VIEW)
+        if (addNote) {
+            // A preset note type must be current before the note is built, or the spinner switches it back
+            requireArguments().getLong(EXTRA_NOTETYPE_ID, 0L).takeIf { it != 0L }?.let { id ->
+                col.notetypes.get(id)?.let { col.notetypes.setCurrent(it) }
+            }
+        }
         setDid(editorNote)
         setNote(editorNote, FieldChangeType.onActivityCreation(shouldReplaceNewlines()))
         if (addNote) {
@@ -1028,6 +1035,10 @@ class NoteEditorFragment :
                 contents = requireArguments().getString(EXTRA_CONTENTS)
             }
             contents?.let { setEditFieldTexts(it) }
+            requireArguments().getString(EXTRA_PREFILL_FIELD)?.let { fieldName ->
+                val index = editorNote!!.notetype.fieldsNames.indexOf(fieldName)
+                editFields?.getOrNull(index)?.setText(requireArguments().getString(EXTRA_PREFILL_VALUE).orEmpty())
+            }
             tags?.let { setTags(it) }
             // If the activity was called to handle an image addition, launch a coroutine to process the image intent.
             if (caller == NoteEditorCaller.ADD_IMAGE) lifecycleScope.launch { handleImageIntent(intent) }
@@ -1419,7 +1430,7 @@ class NoteEditorFragment :
         val successMessage = TR.importingCardsAdded(count).replace(".", "")
         showSnackbar(successMessage, Snackbar.LENGTH_SHORT)
 
-        if (caller == NoteEditorCaller.NOTEEDITOR || aedictIntent) {
+        if (caller == NoteEditorCaller.NOTEEDITOR || caller == NoteEditorCaller.NAVIGATION_ADD || aedictIntent) {
             closeEditorAfterSave = true
         } else if (caller == NoteEditorCaller.NOTEEDITOR_INTENT_ADD) {
             closeEditorAfterSave = true
@@ -4914,7 +4925,14 @@ class NoteEditorFragment :
             HtmlCompat.fromHtml(
                 "${suggestion.insertValue} ${TextUtils.htmlEncode(suggestion.label)}",
                 HtmlCompat.FROM_HTML_MODE_LEGACY,
-                CollectionMediaImageGetter(requireContext(), view, mediaDir, viewLifecycleOwner.lifecycleScope),
+                // Prop images are icons (class="inline-img" on the card): keep them at text height
+                CollectionMediaImageGetter(
+                    requireContext(),
+                    view,
+                    mediaDir,
+                    viewLifecycleOwner.lifecycleScope,
+                    inlineHeightPx = (view.textSize * 1.4f).toInt(),
+                ),
                 null,
             )
         } else {
@@ -5417,6 +5435,9 @@ class NoteEditorFragment :
         const val EXTRA_TAGS = "TAGS"
         const val EXTRA_ID = "ID"
         const val EXTRA_DID = "DECK_ID"
+        const val EXTRA_NOTETYPE_ID = "NOTETYPE_ID"
+        const val EXTRA_PREFILL_FIELD = "PREFILL_FIELD"
+        const val EXTRA_PREFILL_VALUE = "PREFILL_VALUE"
         const val EXTRA_TEXT_FROM_SEARCH_VIEW = "SEARCH"
         const val EXTRA_EDIT_FROM_CARD_ID = "editCid"
         const val ACTION_CREATE_FLASHCARD = "org.openintents.action.CREATE_FLASHCARD"
@@ -5442,6 +5463,7 @@ class NoteEditorFragment :
             IMG_OCCLUSION(12),
             ADD_IMAGE(13),
             INSTANT_NOTE_EDITOR(14),
+            NAVIGATION_ADD(15),
             ;
 
             companion object {

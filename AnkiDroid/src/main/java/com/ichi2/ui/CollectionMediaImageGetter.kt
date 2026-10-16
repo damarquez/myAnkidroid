@@ -36,12 +36,16 @@ import java.lang.ref.WeakReference
 /**
  * Async ImageGetter for Deck Descriptions.
  * Resolves local images from the collection media directory and downsamples them to prevent OOM.
+ *
+ * @param inlineHeightPx when set, every image is scaled to this height (like CSS `height: 1.2em`)
+ * so it sits inline with the text instead of filling the view width.
  */
 class CollectionMediaImageGetter(
     private val context: Context,
     view: TextView,
     private val mediaDir: File,
     private val scope: CoroutineScope,
+    private val inlineHeightPx: Int? = null,
 ) : Html.ImageGetter {
     private val containerRef = WeakReference(view)
     private var imageCount = 0
@@ -123,8 +127,11 @@ class CollectionMediaImageGetter(
         var w = bitmap.width
         var h = bitmap.height
 
-        // Downscale to fit view if necessary
-        if (scale < 1.0f) {
+        if (inlineHeightPx != null && inlineHeightPx > 0) {
+            w = (bitmap.width.toFloat() * inlineHeightPx / bitmap.height).toInt().coerceIn(1, viewWidth)
+            h = (w.toFloat() * bitmap.height / bitmap.width).toInt().coerceAtLeast(1)
+        } else if (scale < 1.0f) {
+            // Downscale to fit view if necessary
             w = viewWidth
             h = (h * scale).toInt()
         }

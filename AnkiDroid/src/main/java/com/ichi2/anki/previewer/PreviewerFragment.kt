@@ -46,6 +46,7 @@ import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_ANSWER
 import com.ichi2.anki.navigation.NAVIGATION_OPEN_MODE_SHARE
 import com.ichi2.anki.navigation.NavigationMatch
 import com.ichi2.anki.navigation.findNavigationMatches
+import com.ichi2.anki.navigation.offerToCreateNavigationNote
 import com.ichi2.anki.navigation.parseNavigationRequest
 import com.ichi2.anki.notelinks.extractGuidFromNoteLinkUrl
 import com.ichi2.anki.notelinks.findFirstCardIdForNoteGuid
@@ -367,7 +368,10 @@ class PreviewerFragment :
                     }
 
             when {
-                matches.isEmpty() -> showSnackbar(getString(R.string.search_card_js_api_no_results))
+                matches.isEmpty() ->
+                    offerToCreateNavigationNote(requireContext(), request) {
+                        showSnackbar(getString(R.string.search_card_js_api_no_results))
+                    }
                 matches.size == 1 -> {
                     showSnackbar("Opening linked preview")
                     captureScrollAndOpenLinkedCard(matches.single().cardId, request.openMode)
