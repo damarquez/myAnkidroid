@@ -210,4 +210,45 @@ class TemplateFrequencyLookupTest {
 
         assertTrue(hasTemplateFrequencyLookupRuleForField(rules, "HSK Frequency"))
     }
+
+    private fun autoRule() =
+        TemplateFrequencyLookupRule(
+            field = "HSK Frequency",
+            deck = null,
+            sourceField = "Front",
+            targetField = "HSK Frequency",
+            format = FREQUENCY_FORMAT_RANK_AND_TERM,
+            rankType = FREQUENCY_RANK_TYPE_AUTO,
+            removeNonAlphabeticChars = true,
+        )
+
+    private val chang = WordRankingLookup(term = "长", preferredRank = 71, charRank = 71, globalRank = 211)
+
+    @Test
+    fun autoRank_characterUsesCharRankWithoutDot() {
+        val rank = autoRule().rankFor(chang, "长")!!
+        assertEquals(71L, rank)
+        assertEquals("00071 长", autoRule().formatFrequency(rank, chang, "长"))
+    }
+
+    @Test
+    fun autoRank_dottedSingleCharacterWordUsesGlobalRankAndKeepsDot() {
+        val rank = autoRule().rankFor(chang, "长.")!!
+        assertEquals(211L, rank)
+        assertEquals("00211 长.", autoRule().formatFrequency(rank, chang, "长."))
+    }
+
+    @Test
+    fun autoRank_multiCharacterWordUsesGlobalRank() {
+        val renshi = WordRankingLookup(term = "认识", preferredRank = 77, charRank = null, globalRank = 77)
+        val rank = autoRule().rankFor(renshi, "认识")!!
+        assertEquals("00077 认识", autoRule().formatFrequency(rank, renshi, "认识"))
+    }
+
+    @Test
+    fun isSingleCharacterWordEntry_onlyForOneLetterWithDot() {
+        assertTrue(isSingleCharacterWordEntry(" 的. "))
+        assertFalse(isSingleCharacterWordEntry("的"))
+        assertFalse(isSingleCharacterWordEntry("认识."))
+    }
 }

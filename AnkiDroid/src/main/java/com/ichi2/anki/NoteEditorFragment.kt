@@ -198,8 +198,10 @@ import com.ichi2.anki.props.selectTemplateSetSearchRule
 import com.ichi2.anki.ranking.FREQUENCY_FORMAT_RANK_AND_TERM
 import com.ichi2.anki.ranking.TemplateFrequencyLookupConfigException
 import com.ichi2.anki.ranking.WordRankingStore
+import com.ichi2.anki.ranking.formatFrequency
 import com.ichi2.anki.ranking.hasTemplateFrequencyLookupRuleForField
 import com.ichi2.anki.ranking.parseTemplateFrequencyLookupRules
+import com.ichi2.anki.ranking.rankFor
 import com.ichi2.anki.ranking.sanitizeRankingLookupTerm
 import com.ichi2.anki.ranking.selectTemplateFrequencyLookupRule
 import com.ichi2.anki.servicelayer.LanguageHintService.languageHint
@@ -3634,18 +3636,13 @@ class NoteEditorFragment :
                 withProgress(R.string.note_editor_frequency_lookup_in_progress) {
                     rankingStore.lookup(lookupTerm)
                 }
-            val rank = lookup?.rankFor(rule.rankType)
+            val rank = lookup?.let { rule.rankFor(it, sourceValue) }
             if (rank == null) {
                 showSnackbar(getString(R.string.note_editor_frequency_lookup_not_found, lookupTerm))
                 return@launchCatchingTask
             }
 
-            val formattedValue =
-                if (rule.format == FREQUENCY_FORMAT_RANK_AND_TERM) {
-                    "${rank.toString().padStart(5, '0')} ${lookup.term}"
-                } else {
-                    rank.toString().padStart(5, '0')
-                }
+            val formattedValue = rule.formatFrequency(rank, lookup, sourceValue)
             val targetField = editFields?.getOrNull(targetFieldIndex) ?: currentField
             targetField.setText(formattedValue)
             if (targetField.hasFocus()) {

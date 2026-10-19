@@ -1882,6 +1882,9 @@ open class CardTemplateEditor :
                     // format: "rankOnly" | "rankAndTerm"
                     "format": "rankAndTerm",
                     // rankType: "auto" | "char" | "global"
+                    // auto: a single character ("好") uses its char rank; a word, including a
+                    // one-character word written with a dot ("好."), uses its global rank.
+                    // With rankAndTerm, the dot of "好." is kept: "00010 好.".
                     "rankType": "auto",
                     // Optional: remove punctuation, spaces, digits, etc. before lookup.
                     "removeNonAlphabeticChars": false

@@ -120,6 +120,43 @@ private fun parseTemplateFrequencyLookupRule(jsonObject: JSONObject): TemplateFr
     )
 }
 
+/**
+ * True for a one-character word written with a trailing dot ("好."), as opposed to the character "好".
+ * [source] is the raw source field text.
+ */
+fun isSingleCharacterWordEntry(source: String): Boolean {
+    val trimmed = source.trim()
+    if (!trimmed.endsWith(".")) return false
+    val letters = sanitizeRankingLookupTerm(trimmed, removeNonAlphabeticChars = true)
+    return letters.codePointCount(0, letters.length) == 1
+}
+
+/**
+ * The rank for this rule. With rankType "auto", a plain single character uses its char rank and
+ * any word, including a one-character word written "好.", uses its global rank.
+ */
+fun TemplateFrequencyLookupRule.rankFor(
+    lookup: WordRankingLookup,
+    source: String,
+): Long? =
+    if (rankType == FREQUENCY_RANK_TYPE_AUTO && isSingleCharacterWordEntry(source)) {
+        lookup.globalRank
+    } else {
+        lookup.rankFor(rankType)
+    }
+
+/** "00001 的." for a one-character word, "00001 的" for the character; the term keeps the entry's dot */
+fun TemplateFrequencyLookupRule.formatFrequency(
+    rank: Long,
+    lookup: WordRankingLookup,
+    source: String,
+): String {
+    val paddedRank = rank.toString().padStart(5, '0')
+    if (format != FREQUENCY_FORMAT_RANK_AND_TERM) return paddedRank
+    val term = if (isSingleCharacterWordEntry(source) && !lookup.term.endsWith(".")) "${lookup.term}." else lookup.term
+    return "$paddedRank $term"
+}
+
 const val FREQUENCY_FORMAT_RANK_ONLY = "rankOnly"
 const val FREQUENCY_FORMAT_RANK_AND_TERM = "rankAndTerm"
 const val FREQUENCY_RANK_TYPE_AUTO = "auto"

@@ -15,7 +15,9 @@ import com.ichi2.anki.ranking.FREQUENCY_FORMAT_RANK_AND_TERM
 import com.ichi2.anki.ranking.FREQUENCY_RANK_TYPE_AUTO
 import com.ichi2.anki.ranking.TemplateFrequencyLookupRule
 import com.ichi2.anki.ranking.WordRankingStore
+import com.ichi2.anki.ranking.formatFrequency
 import com.ichi2.anki.ranking.parseTemplateFrequencyLookupRules
+import com.ichi2.anki.ranking.rankFor
 import com.ichi2.anki.ranking.sanitizeRankingLookupTerm
 import com.ichi2.anki.searchForRows
 import org.json.JSONArray
@@ -255,24 +257,32 @@ suspend fun resolveNavigationCreateTarget(request: NavigationRequest): Navigatio
 }
 
 /**
- * The frequency the note would get, computed like the editor's "HSK Frequency" fill: the config rule
- * decides char vs. global (word) rank; without a rule, a single Han character uses its char rank
- * and anything else its global rank. Returns a "label: value" line for the dialog.
+ * The frequency the note would get, computed like the editor's "HSK Frequency" button. Without a
+ * config rule, it uses "auto" (char rank for a character, global rank for a word or "好.").
+ * Returns a "label: value" line for the dialog.
  */
 private suspend fun describeNavigationFrequency(
     context: Context,
     target: NavigationCreateTarget,
 ): String {
-    val rule = target.frequencyRule
-    val label = rule?.let { it.targetField ?: it.field } ?: "Frequency"
-    val term = sanitizeRankingLookupTerm(target.fieldValue, rule?.removeNonAlphabeticChars ?: true).trim()
+    val rule =
+        target.frequencyRule ?: TemplateFrequencyLookupRule(
+            field = null,
+            deck = null,
+            sourceField = target.fieldName,
+            targetField = null,
+            format = FREQUENCY_FORMAT_RANK_AND_TERM,
+            rankType = FREQUENCY_RANK_TYPE_AUTO,
+            removeNonAlphabeticChars = true,
+        )
+    val label = rule.targetField ?: rule.field ?: "Frequency"
+    val source = target.fieldValue
+    val term = sanitizeRankingLookupTerm(source, rule.removeNonAlphabeticChars).trim()
     val store = WordRankingStore(context)
     if (!store.status().ready) return "$label: ranking data not set up"
     val lookup = if (term.isBlank()) null else store.lookup(term)
-    val rank = lookup?.rankFor(rule?.rankType ?: FREQUENCY_RANK_TYPE_AUTO) ?: return "$label: not ranked"
-    val padded = rank.toString().padStart(5, '0')
-    val value = if (rule == null || rule.format == FREQUENCY_FORMAT_RANK_AND_TERM) "$padded ${lookup.term}" else padded
-    return "$label: $value"
+    val rank = lookup?.let { rule.rankFor(it, source) } ?: return "$label: not ranked"
+    return "$label: ${rule.formatFrequency(rank, lookup, source)}"
 }
 
 /**
