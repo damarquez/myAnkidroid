@@ -89,6 +89,12 @@
         android:visible="false"
         app:showAsAction="never"/>
 
+    <item
+        android:id="@+id/action_empty_linked_fields"
+        android:title="@string/browser_empty_linked_fields"
+        android:visible="false"
+        app:showAsAction="never"/>
+
     <!-- Delete should be last, if undo is not visible -->
     <item
         android:id="@+id/action_delete_card"

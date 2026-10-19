@@ -16,6 +16,9 @@
 package com.ichi2.anki.libanki
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class LinkedNotesTest {
@@ -32,5 +35,63 @@ class LinkedNotesTest {
     fun `raw legacy linked note guids are still supported`() {
         assertEquals("abc123", extractLinkedNoteGuid("{abc123} summary"))
         assertEquals("abc123", extractLinkedNoteGuid("abc123"))
+    }
+
+    @Test
+    fun `implicit link rules are parsed`() {
+        val config =
+            parseTemplateLinkedNoteConfig(
+                """
+                <script id="ankidroid-linked-note-config" type="application/json">
+                {
+                  "linkedNoteField": "Linked Note",
+                  "implicitLinks": [
+                    { "fromDeck": "A::Words", "pattern": "^(.)\\.$", "toDeck": "A::Chars", "toField": "Front" }
+                  ]
+                }
+                </script>
+                """.trimIndent(),
+            )!!
+
+        val rule = config.implicitLinks.single()
+        assertEquals("A::Words", rule.fromDeck)
+        assertEquals("A::Chars", rule.toDeck)
+        assertNull(rule.fallbackField)
+    }
+
+    @Test
+    fun `implicit link pattern needs a group`() {
+        assertThrows(LinkedNoteConfigException::class.java) {
+            parseTemplateLinkedNoteConfig(
+                """<script id="ankidroid-linked-note-config">{"linkedNoteField": "L",
+                  "implicitLinks": [{"pattern": "^.\\.$", "toDeck": "D", "toField": "Front"}]}</script>""",
+            )
+        }
+    }
+
+    @Test
+    fun `implicit link key ignores markup and spaces`() {
+        val rule = ImplicitLinkRule(null, null, Regex("""^(.)\.$"""), "D", "Front", null)
+
+        assertEquals("好", implicitLinkKey(rule, "好."))
+        assertEquals("买", implicitLinkKey(rule, " <b>买.</b>&nbsp;"))
+        assertNull(implicitLinkKey(rule, "好"))
+        assertNull(implicitLinkKey(rule, "你好."))
+    }
+
+    @Test
+    fun `comparison ignores line breaks, audio wrappers and hidden text markers`() {
+        assertEquals(
+            normalizeForLinkedComparison("hǎo<br>[sound:a.mp3]"),
+            normalizeForLinkedComparison("hǎo<br>{a.mp3}{*[sound:a.mp3]*}"),
+        )
+        assertEquals(
+            normalizeForLinkedComparison("1. 你好！(*1)<br>(Nǐ hǎo!)(*2)"),
+            normalizeForLinkedComparison("1. 你好！   <br>(Nǐ hǎo!)   "),
+        )
+        assertNotEquals(
+            normalizeForLinkedComparison("""Actor: [link:"x"|h-] (Harrison Ford)"""),
+            normalizeForLinkedComparison("Actor: h- (Harrison Ford)"),
+        )
     }
 }

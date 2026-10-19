@@ -1909,7 +1909,19 @@ open class CardTemplateEditor :
                   // Optional: fields shown in the picker summary. Falls back to the first non-empty visible fields.
                   "labelFields": ["Front", "Back"],
                   // Optional: maximum number of rows shown in the picker.
-                  "maxResults": 12
+                  "maxResults": 12,
+                  // Optional: link without a stored GUID, used only when linkedNoteField is empty.
+                  // A note in fromDeck whose sourceField (default: searchField) matches pattern links to
+                  // the only note in toDeck whose toField (or fallbackField) equals the pattern's group 1.
+                  "implicitLinks": [
+                    {
+                      "fromDeck": "MandarinMP::Vocabulary",
+                      "pattern": "^(.)\\.$",
+                      "toDeck": "MandarinMP::Characters",
+                      "toField": "Front",
+                      "fallbackField": "Traditional"
+                    }
+                  ]
                 }
                 </script>
 

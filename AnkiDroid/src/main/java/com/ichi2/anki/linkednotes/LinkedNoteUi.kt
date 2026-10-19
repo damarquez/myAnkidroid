@@ -20,7 +20,8 @@ fun injectLinkedNoteBanner(
         }
     val modeLabel =
         when (linkedNoteDisplayMode) {
-            LinkedNoteDisplayMode.MERGED -> "Linked note view"
+            LinkedNoteDisplayMode.MERGED ->
+                if (relation.isImplicit) "Linked note view (by ${relation.implicitSourceField})" else "Linked note view"
             LinkedNoteDisplayMode.ORIGINAL -> "Original note view"
         }
     val bannerHtml =

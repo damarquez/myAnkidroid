@@ -349,11 +349,26 @@ These details matter if the audit script is changed or the note format changes.
   - So the word card plus character card double review is a collection-wide design, not a linked-note problem. Navigation searches don't skip suspended cards, so suspending would not break the "Word" button. Whether to review both is a design choice for all 101 pairs.
   - 見 is a different case. The stub (created 2025-11-08) predates the "Char" button's `fallbackField: Traditional` (added 2026-04-20), which now finds 见 by itself. Its cards are new, would show the same 见 content, and have HSK rank 86, ahead of 见's 131.
     - [ ] Decide whether 見's stub cards should stay active (open).
-  - **Optional: turn more word copies into linked stubs (2026-10-19).** Nothing requires it; navigation and frequency only need the "X." note to exist. The benefit is one place to edit, because the copies drift in both directions: 好. still has the old Reason without links and old audio markup; 都.'s word note is newer than the character note; 长. has both readings while 长 has one reading and a different room.
-    - 21 word notes match their character note in every filled field: 他 这 说 来 个 点 谁 太 小 年 门 家 书 还 地 月 狗 四 五 十 字. Link them and empty everything except Front and HSK Frequency.
-    - 73 differ somewhere (mostly Pinyin, Reason and Examples, usually just older markup). Before emptying a field, move anything better on the word note into the character note. Keep a field filled only if the word should really show something different; a filled field wins over the linked note.
-    - How: in the fork's note editor, tap inside Linked Note, press the link icon in the toolbar ("Choose linked note"), search, and pick the character note. It's stored as `{guidhex:…} label`. Check the result with the card banner's Show original / Show merged toggle.
-    - Caveats: Front always comes from the character note, so the card shows "好", not "好.". Anki desktop and AnkiWeb show the stub's empty fields.
+  - **Implicit links (fork, 2026-10-19).** `implicitLinks` in `ankidroid-linked-note-config` links a note without a stored GUID. It applies only when Linked Note is empty, so a stored link always wins. For MandarinMP, add to the config block in **both** card templates:
+    ```json
+    "implicitLinks": [
+      { "fromDeck": "MandarinMP::Vocabulary", "pattern": "^(.)\.$",
+        "toDeck": "MandarinMP::Characters", "toField": "Front", "fallbackField": "Traditional" }
+    ]
+    ```
+    - A Vocabulary note whose Front is one character plus "." links to the only Characters note with that Front (or that Traditional, if no Front matches). If several match, nothing is linked.
+    - The banner says "Linked note view (by Front)". Filled fields still win, so the 94 copies look the same until fields are emptied.
+    - A new word stub is just a note with Front `好.` in Vocabulary (plus HSK Frequency).
+  - **Browser → select notes → ⋮ → "Empty fields that match linked note"** (one undoable step):
+    - Empties each field that shows the same as in the linked note. Comparison ignores `<br>`, spacing, `{x.mp3}{*[sound:x.mp3]*}` wrappers and `(*1)` markers; links, formatting and wording count.
+    - Never touches Front, Linked Note or the rule's source field.
+    - Tags fields that still differ `linked-differs::<Field>` (replaced on every run).
+  - **Preview on the 09:08 sync** (`tools/mandarinmp_audit/simulate_implicit_links.py`): all 94 word copies link.
+    - 27 become pure stubs (only Front and HSK Frequency left): 他 这 说 她 人 来 个 点 谁 太 里 小 年 门 家 书 还 几 地 月 狗 本 块 四 五 十 字.
+    - 67 keep at least one field.
+    - Of the 61 Reasons that differ, 46 are the old plain form while the character note has the linked form, so they're safe to empty by hand. Check the other 15: 有 很 那 都 第 请 长 钱 坏 才 些 岁 号 少 見.
+    - 見. links to the 見 stub in Characters (Front match), not to 见, so its display barely changes.
+    - [ ] Add `implicitLinks` to both templates, select `deck:MandarinMP::Vocabulary` in the Browser, run the action, then work through `tag:linked-differs::*`.
 - Actor matching in scenes uses accent-folded text, splits CamelCase names, uses word boundaries ("Roo" ≠ "room"), and removes longer names first (Tom Hanks before Tom). Folding must keep **ü** apart from u for n/l (nü ≠ nu).
 
 ---
@@ -404,3 +419,4 @@ Expect some false positives in `S` for scenes that name a second room or a nickn
 | 2026-10-19 | Linked notes: 見 is a stub linked to 见 (Linked Note field), not a note missing its pinyin. Documented how linked notes work (§6); audit_scenes.py now merges them like the reviewer. 8 linked notes, none broken. Reason total 12 → 11. |
 | 2026-10-19 | Linked stubs: the double review isn't specific to them. All 101 one-character words have a word note ("X.") beside the character note, used by the nav "Word" button and the word frequency rank; the 7 stubs are the deduplicated version. Only the 見 stub is a pure duplicate now. §6 corrected. |
 | 2026-10-19 | Added the optional "more linked stubs" item in §6: 21 word notes are exact copies, 73 have drifted from their character note. |
+| 2026-10-19 | Fork: implicit links (`implicitLinks` rule in LinkedNotes.kt) and the Browser action "Empty fields that match linked note". Added simulate_implicit_links.py; preview: 94 linked, 27 become pure stubs. §6 updated. |

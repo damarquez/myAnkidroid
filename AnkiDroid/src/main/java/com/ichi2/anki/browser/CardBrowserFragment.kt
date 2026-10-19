@@ -31,6 +31,7 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.annotation.LayoutRes
 import androidx.annotation.VisibleForTesting
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.ThemeUtils
 import androidx.core.content.ContextCompat
 import androidx.core.view.MenuHost
@@ -99,6 +100,9 @@ import com.ichi2.anki.launchCatchingTask
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.undoAvailable
 import com.ichi2.anki.libanki.undoLabel
+import com.ichi2.anki.linkednotes.LINKED_DIFFERS_TAG_PREFIX
+import com.ichi2.anki.linkednotes.LinkedNoteCleanupSummary
+import com.ichi2.anki.linkednotes.prepareLinkedNoteCleanup
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.CardsOrNotes.CARDS
 import com.ichi2.anki.model.CardsOrNotes.NOTES
@@ -559,6 +563,7 @@ class CardBrowserFragment :
                     menu.findItem(R.id.action_reschedule_cards).isVisible = vm.hasSelectedAnyRows()
                     menu.findItem(R.id.action_edit_tags).isVisible = vm.hasSelectedAnyRows()
                     menu.findItem(R.id.action_reset_cards_progress).isVisible = vm.hasSelectedAnyRows()
+                    menu.findItem(R.id.action_empty_linked_fields).isVisible = vm.hasSelectedAnyRows()
 
                     menu.findItem(R.id.action_export_selected).apply {
                         this.title =
@@ -658,6 +663,11 @@ class CardBrowserFragment :
                         }
                         R.id.action_find_replace -> {
                             showFindAndReplaceDialog()
+                            return true
+                        }
+                        R.id.action_empty_linked_fields -> {
+                            Timber.i("CardBrowserFragment:: Empty fields that match linked note pressed")
+                            confirmEmptyFieldsMatchingLinkedNotes()
                             return true
                         }
                         R.id.action_change_note_type -> {
@@ -1304,6 +1314,42 @@ class CardBrowserFragment :
             }
         }
     }
+
+    private fun confirmEmptyFieldsMatchingLinkedNotes() {
+        AlertDialog
+            .Builder(requireContext())
+            .setTitle(R.string.browser_empty_linked_fields)
+            .setMessage(getString(R.string.browser_empty_linked_fields_confirm, LINKED_DIFFERS_TAG_PREFIX))
+            .setPositiveButton(R.string.dialog_ok) { _, _ -> emptyFieldsMatchingLinkedNotes() }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    /** One undo step: the emptied fields and the "linked-differs::" tags are saved together */
+    private fun emptyFieldsMatchingLinkedNotes() =
+        launchCatchingTask {
+            val summary =
+                withProgress {
+                    val noteIds = activityViewModel.queryAllSelectedNoteIds()
+                    var cleanup: LinkedNoteCleanupSummary? = null
+                    undoableOp {
+                        val (notes, counts) = prepareLinkedNoteCleanup(noteIds)
+                        cleanup = counts
+                        updateNotes(notes)
+                    }
+                    cleanup
+                } ?: return@launchCatchingTask
+            showUndoSnackbar(
+                getString(
+                    R.string.browser_empty_linked_fields_done,
+                    summary.fieldsEmptied,
+                    summary.notesChanged,
+                    summary.notesDiffering,
+                    LINKED_DIFFERS_TAG_PREFIX + "*",
+                    summary.notesWithoutLink,
+                ),
+            )
+        }
 
     @KotlinCleanup("DeckSelectionListener is almost certainly a bug - deck!!")
     @VisibleForTesting
