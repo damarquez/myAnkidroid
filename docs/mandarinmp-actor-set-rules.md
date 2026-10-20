@@ -363,12 +363,27 @@ These details matter if the audit script is changed or the note format changes.
     - Empties each field that shows the same as in the linked note. Comparison ignores `<br>`, spacing, `{x.mp3}{*[sound:x.mp3]*}` wrappers and `(*1)` markers; links, formatting and wording count.
     - Never touches Front, Linked Note or the rule's source field.
     - Tags fields that still differ `linked-differs::<Field>` (replaced on every run).
+    - Keeps frequency fields (HSK Frequency) and doesn't tag them: a word's rank is meant to differ from its character's.
+    - Stores a link found by the implicit rule in Linked Note, so it shows in the editor, on desktop and to the audit.
+    - On a second run, nothing is left to empty, so it reports "0 fields on 0 notes". That's expected.
   - **Preview on the 09:08 sync** (`tools/mandarinmp_audit/simulate_implicit_links.py`): all 94 word copies link.
     - 27 become pure stubs (only Front and HSK Frequency left): 他 这 说 她 人 来 个 点 谁 太 里 小 年 门 家 书 还 几 地 月 狗 本 块 四 五 十 字.
     - 67 keep at least one field.
     - Of the 61 Reasons that differ, 46 are the old plain form while the character note has the linked form, so they're safe to empty by hand. Check the other 15: 有 很 那 都 第 请 长 钱 坏 才 些 岁 号 少 見.
     - 見. links to the 見 stub in Characters (Front match), not to 见, so its display barely changes.
-    - [ ] Add `implicitLinks` to both templates, select `deck:MandarinMP::Vocabulary` in the Browser, run the action, then work through `tag:linked-differs::*`.
+    - [x] Add `implicitLinks` to both templates (present in the 13:00 desktop copy).
+    - [ ] Select `deck:MandarinMP::Vocabulary` in the Browser, run the action, then work through `tag:linked-differs::*` (no tags in the 13:00 copy yet).
+  - **Creating the word from the character (fork, 2026-10-19).** Purpose: every character that is also a word gets a Vocabulary "X." note, so the Vocabulary deck counts single-character words too. The new note has only Front `X.`, HSK Frequency (word rank, as the editor's button would fill it) and Linked Note pointing back to the character. Everything else stays empty and is shown from the character.
+    - **While studying:** select the character, tap "Word". If `X.` doesn't exist, the "No match" dialog now says "Linked to: X (Characters)". **Create** adds the linked note directly; **Open editor** keeps the old behaviour.
+    - **Browser:** select Characters notes → ⋮ → **"Create linked word notes"**. It lists what it will create, each with its word frequency rank (most frequent first), and what already exists. Then it adds them all in one undoable step.
+    - The word text comes from the rule's pattern (`^(.)\.$` gives `X.`). A rule whose pattern isn't plain text around one group needs `"createAs": "$1."`.
+    - The link is stored (GUID), so it survives renaming either note and doesn't need the rule.
+    - 13:00 copy: 503 Characters notes, 101 already have a word note, 401 don't. Only the ones that are words on their own should get one.
+    - **Which characters (analysis 2026-10-19).** The existing pairs follow no consistent rule: 61 of 101 were made in July 2025, and 八 七 九 冷 茶 走 找 要 到 对 are missing. The ranking data does separate them. Ratio = word rank ("X.") ÷ char rank: median 0.8 with a word note, 6.3 without.
+      - Suggested rule: word rank ≤ 2000, ratio ≤ 2, and Back not marked "bound form", "rarely used alone" or "usually in combinations". It keeps 96 of the 101 (misses 大 长 先 地 第) and proposes 107 more (57 already studied).
+      - Ratio 2–5 is a grey zone (出 新 高 老 马 关 分 …): free words that are also common in compounds. Decide by hand.
+      - Check segmentation artefacts before creating: 宜 世 使 及 元.
+      - [ ] Pick from the candidate list and create them with "Create linked word notes" (open).
 - Actor matching in scenes uses accent-folded text, splits CamelCase names, uses word boundaries ("Roo" ≠ "room"), and removes longer names first (Tom Hanks before Tom). Folding must keep **ü** apart from u for n/l (nü ≠ nu).
 
 ---
@@ -420,3 +435,6 @@ Expect some false positives in `S` for scenes that name a second room or a nickn
 | 2026-10-19 | Linked stubs: the double review isn't specific to them. All 101 one-character words have a word note ("X.") beside the character note, used by the nav "Word" button and the word frequency rank; the 7 stubs are the deduplicated version. Only the 見 stub is a pure duplicate now. §6 corrected. |
 | 2026-10-19 | Added the optional "more linked stubs" item in §6: 21 word notes are exact copies, 73 have drifted from their character note. |
 | 2026-10-19 | Fork: implicit links (`implicitLinks` rule in LinkedNotes.kt) and the Browser action "Empty fields that match linked note". Added simulate_implicit_links.py; preview: 94 linked, 27 become pure stubs. §6 updated. |
+| 2026-10-19 | Fork: create the "X." word note from its character, empty and linked back. In the reviewer's "Word" no-match dialog (Create) and the Browser ("Create linked word notes"). `implicitLinks` confirmed in both templates. §6 updated. |
+| 2026-10-19 | Analysed which characters have a word note. No rule in the existing pairs; frequency rule proposed (word rank ≤ 2000, ratio ≤ 2, not marked bound): 96/101 kept, 107 candidates. §6. |
+| 2026-10-19 | Fork fix after trying 他.: "Empty fields that match linked note" now stores the implicit link in Linked Note and no longer tags HSK Frequency. §6. |

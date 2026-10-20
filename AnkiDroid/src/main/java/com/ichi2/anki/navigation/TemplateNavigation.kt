@@ -2,15 +2,24 @@ package com.ichi2.anki.navigation
 
 import android.content.Context
 import androidx.appcompat.app.AlertDialog
+import androidx.fragment.app.FragmentActivity
 import com.ichi2.anki.CollectionManager.withCol
 import com.ichi2.anki.browser.search.SearchString
+import com.ichi2.anki.launchCatchingTask
 import com.ichi2.anki.libanki.Card
+import com.ichi2.anki.libanki.Collection
 import com.ichi2.anki.libanki.DeckId
 import com.ichi2.anki.libanki.Decks
+import com.ichi2.anki.libanki.LinkedSourcePlan
 import com.ichi2.anki.libanki.NoteTypeId
 import com.ichi2.anki.libanki.SortOrder
+import com.ichi2.anki.libanki.findImplicitLinkTargetForNewNote
+import com.ichi2.anki.linkednotes.LinkedWordToCreate
+import com.ichi2.anki.linkednotes.addLinkedWordNotes
+import com.ichi2.anki.linkednotes.fillLinkedWordFrequencies
 import com.ichi2.anki.model.CardsOrNotes
 import com.ichi2.anki.noteeditor.NoteEditorLauncher
+import com.ichi2.anki.observability.undoableOp
 import com.ichi2.anki.ranking.FREQUENCY_FORMAT_RANK_AND_TERM
 import com.ichi2.anki.ranking.FREQUENCY_RANK_TYPE_AUTO
 import com.ichi2.anki.ranking.TemplateFrequencyLookupRule
@@ -20,6 +29,7 @@ import com.ichi2.anki.ranking.parseTemplateFrequencyLookupRules
 import com.ichi2.anki.ranking.rankFor
 import com.ichi2.anki.ranking.sanitizeRankingLookupTerm
 import com.ichi2.anki.searchForRows
+import com.ichi2.anki.showThemedToast
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
@@ -307,6 +317,12 @@ suspend fun offerToCreateNavigationNote(
         runCatching { describeNavigationFrequency(context, target) }
             .onFailure { Timber.w(it, "Frequency lookup failed") }
             .getOrNull()
+    // e.g. "好." in Vocabulary when Characters has "好": can be created directly as an empty linked note
+    val linkedWord =
+        runCatching { withCol { linkedWordForNavigation(target) } }
+            .onFailure { Timber.w(it, "Could not resolve an implicit link for navigation") }
+            .getOrNull()
+            ?.takeIf { context is FragmentActivity }
     val message =
         buildString {
             appendLine("\"${target.fieldValue}\" was not found.")
@@ -317,21 +333,64 @@ suspend fun offerToCreateNavigationNote(
             appendLine("Note type: ${target.noteTypeName}")
             append("${target.fieldName}: ${target.fieldValue}")
             frequency?.let { append("\n$it") }
+            linkedWord?.let {
+                append("\nLinked to: ${linkedWordLabel(it)}")
+                append("\n\nCreate makes it with its other fields empty, showing the linked note's content.")
+            }
         }
-    AlertDialog
-        .Builder(context)
-        .setTitle("No match")
-        .setMessage(message)
-        .setPositiveButton("Create") { _, _ ->
-            Timber.i("Navigation: opening note editor to create '%s'", target.fieldValue)
-            val launcher =
-                NoteEditorLauncher.AddNoteFromNavigation(
-                    deckId = target.deckId,
-                    noteTypeId = target.noteTypeId,
-                    fieldName = target.fieldName,
-                    fieldValue = target.fieldValue,
-                )
-            context.startActivity(launcher.toIntent(context))
-        }.setNegativeButton(android.R.string.cancel, null)
-        .show()
+    val openEditor = {
+        Timber.i("Navigation: opening note editor to create '%s'", target.fieldValue)
+        val launcher =
+            NoteEditorLauncher.AddNoteFromNavigation(
+                deckId = target.deckId,
+                noteTypeId = target.noteTypeId,
+                fieldName = target.fieldName,
+                fieldValue = target.fieldValue,
+            )
+        context.startActivity(launcher.toIntent(context))
+    }
+    val dialog =
+        AlertDialog
+            .Builder(context)
+            .setTitle("No match")
+            .setMessage(message)
+            .setNegativeButton(android.R.string.cancel, null)
+    if (linkedWord == null) {
+        dialog.setPositiveButton("Create") { _, _ -> openEditor() }
+    } else {
+        dialog
+            .setPositiveButton("Create") { _, _ -> createLinkedWordFromNavigation(context as FragmentActivity, linkedWord) }
+            .setNeutralButton("Open editor") { _, _ -> openEditor() }
+    }
+    dialog.show()
+}
+
+private fun Collection.linkedWordForNavigation(target: NavigationCreateTarget): LinkedWordToCreate? {
+    val noteType = notetypes.get(target.noteTypeId) ?: return null
+    val (rule, linkTarget) =
+        findImplicitLinkTargetForNewNote(this, noteType, target.deckName, target.fieldName, target.fieldValue)
+            ?: return null
+    // the new note gets the linked note's type
+    if (linkTarget.noteTypeId != noteType.id) return null
+    val plan = LinkedSourcePlan(rule, target.deckName, target.fieldName, target.fieldValue, existingNoteIds = emptyList())
+    return LinkedWordToCreate(linkTarget, plan, target.deckId)
+}
+
+private val HTML_TAG = Regex("<[^>]*>")
+
+private fun linkedWordLabel(word: LinkedWordToCreate): String {
+    val field = word.plan.rule.toField
+    val value = if (word.target.contains(field)) word.target.getItem(field) else ""
+    val text = HTML_TAG.replace(value, "").trim()
+    return "$text (${Decks.basename(word.plan.rule.toDeck)})"
+}
+
+private fun createLinkedWordFromNavigation(
+    activity: FragmentActivity,
+    word: LinkedWordToCreate,
+) = activity.launchCatchingTask {
+    Timber.i("Navigation: creating linked note '%s'", word.plan.sourceValue)
+    fillLinkedWordFrequencies(WordRankingStore(activity), listOf(word))
+    undoableOp { addLinkedWordNotes(listOf(word)) }
+    showThemedToast(activity, "Created ${word.plan.sourceValue}, linked to ${linkedWordLabel(word)}", false)
 }

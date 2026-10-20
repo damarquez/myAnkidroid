@@ -1913,6 +1913,8 @@ open class CardTemplateEditor :
                   // Optional: link without a stored GUID, used only when linkedNoteField is empty.
                   // A note in fromDeck whose sourceField (default: searchField) matches pattern links to
                   // the only note in toDeck whose toField (or fallbackField) equals the pattern's group 1.
+                  // "Create linked word notes" goes the other way: from a toDeck note it adds a linked
+                  // note in fromDeck. Its text comes from the pattern; else add "createAs": "$1.".
                   "implicitLinks": [
                     {
                       "fromDeck": "MandarinMP::Vocabulary",

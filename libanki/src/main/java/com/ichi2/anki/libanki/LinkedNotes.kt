@@ -39,6 +39,8 @@ data class ImplicitLinkRule(
     val toDeck: String,
     val toField: String,
     val fallbackField: String?,
+    /** Source text for a note created from the target note, "$1" being its [toField]; null = derived from [pattern] */
+    val createAs: String? = null,
 )
 
 private val LINKED_NOTE_GUID_STORAGE_REGEX = Regex("""\{([^{}\r\n]+)\}""")
@@ -129,6 +131,7 @@ private fun parseImplicitLinkRules(json: JSONObject): List<ImplicitLinkRule> {
             toDeck = toDeck,
             toField = toField,
             fallbackField = rule.optString("fallbackField").trim().ifBlank { null },
+            createAs = rule.optString("createAs").trim().ifBlank { null },
         )
     }
 }
@@ -184,13 +187,36 @@ private fun resolveImplicitLinkRelation(
         if (!note.contains(sourceField)) continue
         val key = implicitLinkKey(rule, note.getItem(sourceField)) ?: continue
         if (rule.fromDeck != null && !noteHasCardsInDeck(col, note, rule.fromDeck)) continue
-        val target = findImplicitLinkTarget(col, note, rule, key) ?: continue
+        val target = findImplicitLinkTarget(col, note.id, rule, key) ?: continue
         return LinkedNoteRelation(
             config = config,
             linkedNoteGuid = target.guId.orEmpty(),
             linkedNote = target,
             implicitSourceField = sourceField,
         )
+    }
+    return null
+}
+
+/**
+ * The note that a note not yet added, with [sourceValue] in [sourceField] and going to [deckName],
+ * would link to by an [ImplicitLinkRule] of [noteType], with that rule. E.g. "好." in Vocabulary
+ * gives Characters "好".
+ */
+fun findImplicitLinkTargetForNewNote(
+    col: Collection,
+    noteType: NotetypeJson,
+    deckName: String,
+    sourceField: String,
+    sourceValue: String,
+): Pair<ImplicitLinkRule, Note>? {
+    val config = parseTemplateLinkedNoteConfig(noteType) ?: return null
+    for (rule in config.implicitLinks) {
+        if ((rule.sourceField ?: config.searchField ?: noteType.fieldsNames.first()) != sourceField) continue
+        val fromDeck = rule.fromDeck
+        if (fromDeck != null && deckName != fromDeck && !deckName.startsWith("$fromDeck::")) continue
+        val key = implicitLinkKey(rule, sourceValue) ?: continue
+        findImplicitLinkTarget(col, 0L, rule, key)?.let { return rule to it }
     }
     return null
 }
@@ -210,28 +236,15 @@ private fun noteHasCardsInDeck(
 /** The single note in the target deck whose field equals [key]; none if there are several */
 private fun findImplicitLinkTarget(
     col: Collection,
-    note: Note,
+    excludedNoteId: NoteId,
     rule: ImplicitLinkRule,
     key: String,
 ): Note? {
     for (fieldName in listOfNotNull(rule.toField, rule.fallbackField).distinct()) {
         val ids =
-            runCatching {
-                // the backend escapes the deck name and the field text
-                val fieldNode =
-                    field {
-                        this.fieldName = fieldName
-                        text = key
-                    }
-                val query =
-                    col.buildSearchString(
-                        listOf(
-                            searchNode { deck = rule.toDeck },
-                            searchNode { field = fieldNode },
-                        ),
-                    )
-                col.findNotes(query).filter { it != note.id }
-            }.getOrElse { return null }
+            runCatching { findNotesWithFieldValue(col, rule.toDeck, fieldName, key) }
+                .getOrElse { return null }
+                .filter { it != excludedNoteId }
         when (ids.size) {
             0 -> continue
             1 -> return runCatching { col.getNote(ids.single()) }.getOrNull()
@@ -240,6 +253,160 @@ private fun findImplicitLinkTarget(
     }
     return null
 }
+
+/** Notes in [deckName] (and its subdecks) whose [fieldName] equals [text] */
+private fun findNotesWithFieldValue(
+    col: Collection,
+    deckName: String,
+    fieldName: String,
+    text: String,
+): List<NoteId> {
+    // the backend escapes the deck name and the field text
+    val fieldNode =
+        field {
+            this.fieldName = fieldName
+            this.text = text
+        }
+    val query =
+        col.buildSearchString(
+            listOf(
+                searchNode { deck = deckName },
+                searchNode { field = fieldNode },
+            ),
+        )
+    return col.findNotes(query)
+}
+
+/**
+ * The note an [ImplicitLinkRule] would link from [target], for creating it: e.g. Vocabulary "好."
+ * for Characters "好". [existingNoteIds] are notes that already have [sourceValue] in [sourceField].
+ */
+data class LinkedSourcePlan(
+    val rule: ImplicitLinkRule,
+    val deckName: String,
+    val sourceField: String,
+    val sourceValue: String,
+    val existingNoteIds: List<NoteId>,
+)
+
+/** The first rule of [target]'s note type whose target deck holds [target]; null if none applies */
+fun planLinkedSourceNote(
+    col: Collection,
+    target: Note,
+): LinkedSourcePlan? {
+    val config = parseTemplateLinkedNoteConfig(target.notetype) ?: return null
+    for (rule in config.implicitLinks) {
+        val deckName = rule.fromDeck ?: continue
+        val sourceField = rule.sourceField ?: config.searchField ?: target.notetype.fieldsNames.first()
+        if (!target.contains(rule.toField) || !target.contains(sourceField)) continue
+        val key = HTML_TAG_REGEX.replace(target.getItem(rule.toField), "").replace("&nbsp;", " ").trim()
+        if (key.isEmpty()) continue
+        val sourceValue = implicitLinkSourceValue(rule, key) ?: continue
+        if (!noteHasCardsInDeck(col, target, rule.toDeck)) continue
+        return LinkedSourcePlan(
+            rule = rule,
+            deckName = deckName,
+            sourceField = sourceField,
+            sourceValue = sourceValue,
+            existingNoteIds = findNotesWithFieldValue(col, deckName, sourceField, sourceValue),
+        )
+    }
+    return null
+}
+
+/**
+ * The rule's source text for [key]: [ImplicitLinkRule.createAs] with "$1" replaced, or else the
+ * pattern read as literal text around its first group (`^(.)\.$` gives "好."). Null when that
+ * text doesn't match the rule back to [key].
+ */
+fun implicitLinkSourceValue(
+    rule: ImplicitLinkRule,
+    key: String,
+): String? {
+    val candidate = rule.createAs?.replace("$1", key) ?: literalAroundFirstGroup(rule.pattern.pattern, key)
+    return candidate?.takeIf { implicitLinkKey(rule, it) == key }
+}
+
+private const val REGEX_META_CHARS = """.[]{}()*+?|^$\"""
+
+/** [pattern] with its first group replaced by [replacement], if the rest is literal text */
+private fun literalAroundFirstGroup(
+    pattern: String,
+    replacement: String,
+): String? {
+    var body = pattern.removePrefix("^")
+    if (body.endsWith("$") && !body.endsWith("\\$")) body = body.dropLast(1)
+    var start = -1
+    var end = -1
+    var depth = 0
+    var i = 0
+    while (i < body.length) {
+        when (body[i]) {
+            '\\' -> i++
+            '(' -> if (depth++ == 0 && start < 0) start = i
+            ')' -> if (--depth == 0 && end < 0 && start >= 0) end = i
+        }
+        if (end >= 0) break
+        i++
+    }
+    if (start < 0 || end < 0 || body.getOrNull(start + 1) == '?') return null
+    val prefix = regexLiteral(body.substring(0, start)) ?: return null
+    val suffix = regexLiteral(body.substring(end + 1)) ?: return null
+    return prefix + replacement + suffix
+}
+
+/** The text [part] matches when it has no regex operators, e.g. `\.` gives "." */
+private fun regexLiteral(part: String): String? =
+    buildString {
+        var i = 0
+        while (i < part.length) {
+            val c = part[i]
+            if (c == '\\') {
+                val next = part.getOrNull(i + 1) ?: return null
+                if (next.isLetterOrDigit()) return null
+                append(next)
+                i += 2
+                continue
+            }
+            if (c in REGEX_META_CHARS) return null
+            append(c)
+            i++
+        }
+    }
+
+/**
+ * A new note of [target]'s type for [plan], with only the source field and a stored link back to
+ * [target]. Not added to the collection.
+ */
+fun newLinkedSourceNote(
+    col: Collection,
+    target: Note,
+    plan: LinkedSourcePlan,
+): Note {
+    val config = requireNotNull(parseTemplateLinkedNoteConfig(target.notetype))
+    return col.newNote(target.notetype).apply {
+        setItem(plan.sourceField, plan.sourceValue)
+        setItem(config.linkedNoteField, linkedNoteStoredValue(target, config))
+    }
+}
+
+/** The stored link to [target], with its label fields as the summary, like the editor's picker */
+fun linkedNoteStoredValue(
+    target: Note,
+    config: LinkedNoteConfig,
+): String {
+    val label =
+        config.labelFields
+            .filter { target.contains(it) }
+            .map { HTML_TAG_REGEX.replace(target.getItem(it), "").replace("&nbsp;", " ").trim() }
+            .filter { it.isNotEmpty() }
+            .take(2)
+            .joinToString(" | ")
+            .let { if (it.length <= LINK_LABEL_MAX_LENGTH) it else it.take(LINK_LABEL_MAX_LENGTH - 3) + "..." }
+    return formatLinkedNoteStoredValue(requireNotNull(target.guId), label)
+}
+
+private const val LINK_LABEL_MAX_LENGTH = 120
 
 /** What [emptyFieldsMatchingLinkedNote] did to a note */
 data class LinkedFieldCleanup(
@@ -269,13 +436,16 @@ fun normalizeForLinkedComparison(value: String): String =
 /**
  * Empties each field of [note] that shows the same as in the linked note, so it is filled from the
  * linked note when displayed. Fields that differ are kept and listed. The linked note field, the
- * search field and the implicit link's source field are never touched. Changes [note] in memory only.
+ * search field, the implicit link's source field and [keepFields] are never touched or listed.
+ * Changes [note] in memory only.
  */
 fun emptyFieldsMatchingLinkedNote(
     note: Note,
     relation: LinkedNoteRelation,
+    keepFields: Set<String> = emptySet(),
 ): LinkedFieldCleanup {
-    val keep = setOfNotNull(relation.config.linkedNoteField, relation.config.searchField, relation.implicitSourceField)
+    val keep =
+        keepFields + setOfNotNull(relation.config.linkedNoteField, relation.config.searchField, relation.implicitSourceField)
     val emptied = mutableListOf<String>()
     val differing = mutableListOf<String>()
     for (fieldName in note.notetype.fieldsNames) {

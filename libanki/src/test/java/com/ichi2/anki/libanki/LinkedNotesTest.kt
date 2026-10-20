@@ -80,6 +80,17 @@ class LinkedNotesTest {
     }
 
     @Test
+    fun `source text is derived from the pattern or createAs`() {
+        val dotted = ImplicitLinkRule(null, null, Regex("""^(.)\.$"""), "D", "Front", null)
+        assertEquals("好.", implicitLinkSourceValue(dotted, "好"))
+        assertNull(implicitLinkSourceValue(dotted, "你好"))
+
+        val wrapped = ImplicitLinkRule(null, null, Regex("""^w:\s*(.+)$"""), "D", "Front", null)
+        assertNull(implicitLinkSourceValue(wrapped, "好"))
+        assertEquals("w: 好", implicitLinkSourceValue(wrapped.copy(createAs = "w: $1"), "好"))
+    }
+
+    @Test
     fun `comparison ignores line breaks, audio wrappers and hidden text markers`() {
         assertEquals(
             normalizeForLinkedComparison("hǎo<br>[sound:a.mp3]"),

@@ -125,4 +125,61 @@ class LinkedNotesWithColTest : InMemoryAnkiTest() {
         assertEquals("", word.getItem("Back"))
         assertEquals("好.", word.getItem("Front"))
     }
+
+    @Test
+    fun `kept fields are neither emptied nor listed, and an implicit link can be stored`() {
+        val char = add(charsDeck, "他", back = "he", traditional = "他")
+        val word = add(wordsDeck, "他.", back = "he", traditional = "他.")
+        val relation = resolveLinkedNoteRelation(col, word)!!
+
+        val result = emptyFieldsMatchingLinkedNote(word, relation, keepFields = setOf("Traditional"))
+
+        assertEquals(listOf("Back"), result.emptied)
+        assertTrue(result.differing.isEmpty())
+        assertEquals("他.", word.getItem("Traditional"))
+
+        word.setItem("Linked Note", linkedNoteStoredValue(relation.linkedNote, relation.config))
+        col.updateNote(word)
+        val stored = resolveLinkedNoteRelation(col, word)!!
+        assertEquals(char.id, stored.linkedNote.id)
+        assertTrue(!stored.isImplicit)
+    }
+
+    @Test
+    fun `a character plans its dotted word, which links back once added`() {
+        val char = add(charsDeck, "好", back = "good")
+
+        val plan = planLinkedSourceNote(col, char)!!
+        assertEquals("Lang::Words", plan.deckName)
+        assertEquals("好.", plan.sourceValue)
+        assertTrue(plan.existingNoteIds.isEmpty())
+
+        val word = newLinkedSourceNote(col, char, plan)
+        col.addNote(word, wordsDeck)
+
+        assertEquals("", word.getItem("Back"))
+        val relation = resolveLinkedNoteRelation(col, word)!!
+        assertEquals(char.id, relation.linkedNote.id)
+        assertTrue(!relation.isImplicit)
+        assertEquals("good", buildEffectiveLinkedNote(word, relation).getItem("Back"))
+        assertEquals(listOf(word.id), planLinkedSourceNote(col, char)!!.existingNoteIds)
+    }
+
+    @Test
+    fun `no dotted word is planned for a note outside the target deck`() {
+        val word = add(wordsDeck, "你好")
+
+        assertNull(planLinkedSourceNote(col, word))
+    }
+
+    @Test
+    fun `a new dotted word finds the character it would link to`() {
+        val char = add(charsDeck, "见", traditional = "見")
+
+        val (rule, target) = findImplicitLinkTargetForNewNote(col, noteType, "Lang::Words", "Front", "見.")!!
+
+        assertEquals(char.id, target.id)
+        assertEquals("Lang::Chars", rule.toDeck)
+        assertNull(findImplicitLinkTargetForNewNote(col, noteType, "Lang::Chars", "Front", "見."))
+    }
 }

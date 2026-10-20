@@ -102,6 +102,10 @@ import com.ichi2.anki.libanki.undoAvailable
 import com.ichi2.anki.libanki.undoLabel
 import com.ichi2.anki.linkednotes.LINKED_DIFFERS_TAG_PREFIX
 import com.ichi2.anki.linkednotes.LinkedNoteCleanupSummary
+import com.ichi2.anki.linkednotes.LinkedWordToCreate
+import com.ichi2.anki.linkednotes.addLinkedWordNotes
+import com.ichi2.anki.linkednotes.fillLinkedWordFrequencies
+import com.ichi2.anki.linkednotes.planLinkedWordNotes
 import com.ichi2.anki.linkednotes.prepareLinkedNoteCleanup
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.CardsOrNotes.CARDS
@@ -110,6 +114,7 @@ import com.ichi2.anki.model.SelectableDeck
 import com.ichi2.anki.model.SortType
 import com.ichi2.anki.observability.ChangeManager
 import com.ichi2.anki.observability.undoableOp
+import com.ichi2.anki.ranking.WordRankingStore
 import com.ichi2.anki.requireAnkiActivity
 import com.ichi2.anki.requireNavigationDrawerActivity
 import com.ichi2.anki.scheduling.ForgetCardsDialog
@@ -564,6 +569,7 @@ class CardBrowserFragment :
                     menu.findItem(R.id.action_edit_tags).isVisible = vm.hasSelectedAnyRows()
                     menu.findItem(R.id.action_reset_cards_progress).isVisible = vm.hasSelectedAnyRows()
                     menu.findItem(R.id.action_empty_linked_fields).isVisible = vm.hasSelectedAnyRows()
+                    menu.findItem(R.id.action_create_linked_words).isVisible = vm.hasSelectedAnyRows()
 
                     menu.findItem(R.id.action_export_selected).apply {
                         this.title =
@@ -668,6 +674,11 @@ class CardBrowserFragment :
                         R.id.action_empty_linked_fields -> {
                             Timber.i("CardBrowserFragment:: Empty fields that match linked note pressed")
                             confirmEmptyFieldsMatchingLinkedNotes()
+                            return true
+                        }
+                        R.id.action_create_linked_words -> {
+                            Timber.i("CardBrowserFragment:: Create linked word notes pressed")
+                            confirmCreateLinkedWordNotes()
                             return true
                         }
                         R.id.action_change_note_type -> {
@@ -1347,9 +1358,67 @@ class CardBrowserFragment :
                     summary.notesDiffering,
                     LINKED_DIFFERS_TAG_PREFIX + "*",
                     summary.notesWithoutLink,
+                    summary.linksStored,
                 ),
             )
         }
+
+    /** Shows what would be created for the selected notes, e.g. "好." for Characters "好", then creates it */
+    private fun confirmCreateLinkedWordNotes() =
+        launchCatchingTask {
+            val noteIds = activityViewModel.queryAllSelectedNoteIds()
+            val (plans, withoutFrequency) =
+                withProgress {
+                    val plans = withCol { planLinkedWordNotes(noteIds) }
+                    plans to fillLinkedWordFrequencies(WordRankingStore(requireContext()), plans.toCreate)
+                }
+            val existing = plans.alreadyExisting.joinToString(" ").ifEmpty { "-" }
+            if (plans.toCreate.isEmpty()) {
+                showSnackbar(getString(R.string.browser_create_linked_words_none, existing, plans.notApplicable))
+                return@launchCatchingTask
+            }
+            val message =
+                buildString {
+                    val first = plans.toCreate.first().plan
+                    append(
+                        getString(
+                            R.string.browser_create_linked_words_confirm,
+                            plans.toCreate.size,
+                            first.sourceField,
+                            first.deckName,
+                        ),
+                    )
+                    append("\n\n")
+                    append(getString(R.string.browser_create_linked_words_ranks))
+                    // most frequent first, so the list can be checked before confirming
+                    plans.toCreate
+                        .sortedBy { it.frequency?.rank ?: Long.MAX_VALUE }
+                        .forEach { word ->
+                            val rank = word.frequency?.let { "${it.rank}".padStart(5, '0') } ?: "  -  "
+                            append("\n$rank  ${word.plan.sourceValue}")
+                        }
+                    if (plans.alreadyExisting.isNotEmpty() || plans.notApplicable > 0) {
+                        append("\n\n")
+                        append(getString(R.string.browser_create_linked_words_skipped, existing, plans.notApplicable))
+                    }
+                }
+            AlertDialog
+                .Builder(requireContext())
+                .setTitle(R.string.browser_create_linked_words)
+                .setMessage(message)
+                .setPositiveButton(R.string.dialog_ok) { _, _ -> createLinkedWordNotes(plans.toCreate, withoutFrequency) }
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .show()
+        }
+
+    /** [words] already have their frequency, shown in the confirmation */
+    private fun createLinkedWordNotes(
+        words: List<LinkedWordToCreate>,
+        withoutFrequency: Int,
+    ) = launchCatchingTask {
+        withProgress { undoableOp { addLinkedWordNotes(words) } }
+        showUndoSnackbar(getString(R.string.browser_create_linked_words_done, words.size, withoutFrequency))
+    }
 
     @KotlinCleanup("DeckSelectionListener is almost certainly a bug - deck!!")
     @VisibleForTesting

@@ -223,8 +223,14 @@
     <string name="note_editor_linked_note_pick_title">Pick a linked note</string>
     <string name="note_editor_linked_note_applied">Linked note set</string>
     <string name="browser_empty_linked_fields">Empty fields that match linked note</string>
-    <string name="browser_empty_linked_fields_confirm">For each selected note with a linked note, empty the fields that show the same as in the linked note, so they are filled from it. Fields that differ are kept and tagged %1$s&lt;field&gt;. You can undo this.</string>
-    <string name="browser_empty_linked_fields_done">Emptied %1$d fields on %2$d notes. %3$d notes still differ (tagged %4$s). %5$d had no linked note.</string>
+    <string name="browser_empty_linked_fields_confirm">For each selected note with a linked note, empty the fields that show the same as in the linked note, so they are filled from it. Fields that differ are kept and tagged %1$s&lt;field&gt;. Frequency fields are kept. A link found by an implicit rule is stored in the linked note field. You can undo this.</string>
+    <string name="browser_empty_linked_fields_done">Changed %2$d notes: emptied %1$d fields, stored %6$d links. %3$d notes still differ (tagged %4$s). %5$d had no linked note.</string>
+    <string name="browser_create_linked_words">Create linked word notes</string>
+    <string name="browser_create_linked_words_confirm">Create %1$d notes in %3$s, each with only %2$s and a link back to its selected note. Their other fields stay empty and show the linked note\'s content. You can undo this.</string>
+    <string name="browser_create_linked_words_ranks">Word frequency rank (lower is more frequent; - = not ranked):</string>
+    <string name="browser_create_linked_words_skipped">Already exist: %1$s. No implicit link rule for %2$d selected notes.</string>
+    <string name="browser_create_linked_words_none">Nothing to create. Already exist: %1$s. No implicit link rule for %2$d selected notes.</string>
+    <string name="browser_create_linked_words_done">Created %1$d linked notes. %2$d without frequency.</string>
     <string name="pref_word_ranking_setup_in_progress">Setting up word rankingâ€¦</string>
     <string name="pref_word_ranking_setup_done">Word ranking is ready with %1$d entries</string>
     <string name="pref_word_ranking_setup_status_not_ready">Bundled ranking data is not set up yet</string>
