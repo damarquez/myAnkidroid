@@ -18,6 +18,7 @@ package com.ichi2.anki.browser
 
 import android.content.DialogInterface
 import android.os.Bundle
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.Menu
@@ -27,7 +28,9 @@ import android.view.SubMenu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.LayoutRes
 import androidx.annotation.VisibleForTesting
@@ -107,6 +110,7 @@ import com.ichi2.anki.linkednotes.addLinkedWordNotes
 import com.ichi2.anki.linkednotes.fillLinkedWordFrequencies
 import com.ichi2.anki.linkednotes.planLinkedWordNotes
 import com.ichi2.anki.linkednotes.prepareLinkedNoteCleanup
+import com.ichi2.anki.linkednotes.withRankAtMost
 import com.ichi2.anki.model.CardStateFilter
 import com.ichi2.anki.model.CardsOrNotes.CARDS
 import com.ichi2.anki.model.CardsOrNotes.NOTES
@@ -1367,10 +1371,11 @@ class CardBrowserFragment :
     private fun confirmCreateLinkedWordNotes() =
         launchCatchingTask {
             val noteIds = activityViewModel.queryAllSelectedNoteIds()
-            val (plans, withoutFrequency) =
+            val plans =
                 withProgress {
-                    val plans = withCol { planLinkedWordNotes(noteIds) }
-                    plans to fillLinkedWordFrequencies(WordRankingStore(requireContext()), plans.toCreate)
+                    withCol { planLinkedWordNotes(noteIds) }.also {
+                        fillLinkedWordFrequencies(WordRankingStore(requireContext()), it.toCreate)
+                    }
                 }
             val existing = plans.alreadyExisting.joinToString(" ").ifEmpty { "-" }
             if (plans.toCreate.isEmpty()) {
@@ -1380,14 +1385,7 @@ class CardBrowserFragment :
             val message =
                 buildString {
                     val first = plans.toCreate.first().plan
-                    append(
-                        getString(
-                            R.string.browser_create_linked_words_confirm,
-                            plans.toCreate.size,
-                            first.sourceField,
-                            first.deckName,
-                        ),
-                    )
+                    append(getString(R.string.browser_create_linked_words_confirm, first.sourceField, first.deckName))
                     append("\n\n")
                     append(getString(R.string.browser_create_linked_words_ranks))
                     // most frequent first, so the list can be checked before confirming
@@ -1402,23 +1400,49 @@ class CardBrowserFragment :
                         append(getString(R.string.browser_create_linked_words_skipped, existing, plans.notApplicable))
                     }
                 }
-            AlertDialog
-                .Builder(requireContext())
-                .setTitle(R.string.browser_create_linked_words)
-                .setMessage(message)
-                .setPositiveButton(R.string.dialog_ok) { _, _ -> createLinkedWordNotes(plans.toCreate, withoutFrequency) }
-                .setNegativeButton(R.string.dialog_cancel, null)
-                .show()
+            // optional max rank: empty creates them all
+            val padding = (20 * resources.displayMetrics.density).toInt()
+            val maxRankInput =
+                EditText(requireContext()).apply {
+                    inputType = InputType.TYPE_CLASS_NUMBER
+                    hint = getString(R.string.browser_create_linked_words_max_rank_hint)
+                }
+            val countText = TextView(requireContext())
+            val inputs =
+                LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(padding, 0, padding, 0)
+                    addView(maxRankInput)
+                    addView(countText)
+                }
+
+            fun selected() = plans.toCreate.withRankAtMost(maxRankInput.text.toString().toLongOrNull())
+            val dialog =
+                AlertDialog
+                    .Builder(requireContext())
+                    .setTitle(R.string.browser_create_linked_words)
+                    .setMessage(message)
+                    .setView(inputs)
+                    .setPositiveButton(R.string.dialog_ok) { _, _ -> createLinkedWordNotes(selected()) }
+                    .setNegativeButton(R.string.dialog_cancel, null)
+                    .show()
+
+            fun refreshCount() {
+                val count = selected().size
+                countText.text = getString(R.string.browser_create_linked_words_count, count, plans.toCreate.size)
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).isEnabled = count > 0
+            }
+            maxRankInput.doAfterTextChanged { refreshCount() }
+            refreshCount()
         }
 
     /** [words] already have their frequency, shown in the confirmation */
-    private fun createLinkedWordNotes(
-        words: List<LinkedWordToCreate>,
-        withoutFrequency: Int,
-    ) = launchCatchingTask {
-        withProgress { undoableOp { addLinkedWordNotes(words) } }
-        showUndoSnackbar(getString(R.string.browser_create_linked_words_done, words.size, withoutFrequency))
-    }
+    private fun createLinkedWordNotes(words: List<LinkedWordToCreate>) =
+        launchCatchingTask {
+            withProgress { undoableOp { addLinkedWordNotes(words) } }
+            val withoutFrequency = words.count { it.frequency == null }
+            showUndoSnackbar(getString(R.string.browser_create_linked_words_done, words.size, withoutFrequency))
+        }
 
     @KotlinCleanup("DeckSelectionListener is almost certainly a bug - deck!!")
     @VisibleForTesting

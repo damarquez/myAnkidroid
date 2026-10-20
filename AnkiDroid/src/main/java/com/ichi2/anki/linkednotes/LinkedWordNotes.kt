@@ -36,6 +36,10 @@ class LinkedWordToCreate(
     var frequency: NewNoteFrequency? = null,
 )
 
+/** The words ranked [maxRank] or more frequent; all of them when [maxRank] is null. Unranked words are left out. */
+fun List<LinkedWordToCreate>.withRankAtMost(maxRank: Long?): List<LinkedWordToCreate> =
+    if (maxRank == null) this else filter { word -> word.frequency?.let { it.rank <= maxRank } == true }
+
 data class LinkedWordPlans(
     val toCreate: List<LinkedWordToCreate>,
     /** Source texts that already exist, e.g. "好." */
